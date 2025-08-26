@@ -180,7 +180,29 @@ exports.createLeaveRequest = (req, res) => {
 };
 
 
-// Function to get pending leave requests
+// ✅ Function to get pending leave requests for a specific department (for managers)
+exports.getManagerPendingLeaveRequests = (req, res) => {
+    // The department is passed from the auth middleware
+    const managerDepartment = req.user.department; 
+
+    const query = `
+        SELECT lr.*, u.fullName, u.department, u.role
+        FROM leave_requests lr
+        JOIN users u ON lr.userId = u.id
+        WHERE lr.status = 'Pending' AND u.department = ?
+        ORDER BY lr.createdAt DESC
+    `;
+    
+    db.query(query, [managerDepartment], (err, results) => {
+        if (err) {
+            console.error('Database query error:', err);
+            return res.status(500).json({ message: 'خطأ في الخادم' });
+        }
+        res.status(200).json(results);
+    });
+};
+
+// ✅ Add this function back
 exports.getPendingLeaveRequests = (req, res) => {
     const query = `
         SELECT lr.*, u.fullName, u.department, u.role
@@ -198,6 +220,7 @@ exports.getPendingLeaveRequests = (req, res) => {
         res.status(200).json(results);
     });
 };
+
 
 // Function to update leave request status (Accept or Reject)
 exports.updateLeaveRequestStatus = (req, res) => {

@@ -63,19 +63,43 @@ exports.getDepartmentTasks = (req, res) => {
 };
 
 // دالة لتحديث حالة المهمة
+// ✅ دالة لتحديث حالة المهمة (النسخة النهائية والمُصححة)
 exports.updateTaskStatus = (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
+    const userId = req.user.id; 
 
-    // التأكد من أن الحالة صالحة
-    // تمت إضافة 'canceled' إلى القائمة
-    const validStatuses = ['pending', 'not_started', 'in_progress', 'completed', 'canceled']; 
+    const validStatuses = ['pending', 'in_progress', 'completed', 'canceled']; 
     if (!validStatuses.includes(status)) {
         return res.status(400).json({ message: 'حالة غير صالحة.' });
     }
 
-    const sql = 'UPDATE tasks SET status = ? WHERE id = ?';
-    db.query(sql, [status, id], (err, result) => {
+    let updateField = '';
+    
+    // ✅ تحديث الكود ليشمل حالة "الإلغاء"
+    if (status === 'in_progress') {
+        updateField = 'inProgressAt';
+    } else if (status === 'completed') {
+        updateField = 'completedAt';
+    } else if (status === 'canceled') { // ✨ تم إضافة هذا الشرط
+        updateField = 'canceledAt';
+    }
+    
+    // Check if a specific date field needs to be updated.
+    // If updateField is empty, it means the status is 'pending', and we only update the status.
+    const sql = `
+        UPDATE tasks 
+        SET status = ?, 
+            ${updateField ? `${updateField} = NOW()` : ''} 
+        WHERE id = ?;
+    `;
+    
+    // Clean up extra commas if updateField is empty
+    const finalSql = sql.replace(/,\s*WHERE/, ' WHERE');
+
+    const params = [status, id];
+
+    db.query(finalSql, params, (err, result) => {
         if (err) {
             console.error('Database error:', err);
             return res.status(500).json({ message: 'فشل تحديث حالة المهمة.' });
@@ -86,6 +110,7 @@ exports.updateTaskStatus = (req, res) => {
         res.status(200).json({ message: 'تم تحديث حالة المهمة بنجاح.' });
     });
 };
+
 
 // دالة جديدة لجلب جميع المهام (للمدير العام)
 exports.getAllTasks = (req, res) => {
@@ -213,5 +238,34 @@ exports.deleteTask = (req, res) => {
                 res.status(200).json({ message: 'تم حذف المهمة بنجاح.' });
             });
         });
+    });
+};
+
+
+// ✅ New function to get tasks for a department with optional status filter
+exports.getDepartmentTasks = (req, res) => {
+    const departmentName = req.user.department;
+    const status = req.query.status;
+
+    let sql = `
+        SELECT t.*, u.fullName as assignedToName, m.fullName as assignedByName
+        FROM tasks t
+        JOIN users u ON t.assignedToId = u.id
+        JOIN users m ON t.assignedById = m.id
+        WHERE u.department = ?
+    `;
+    const params = [departmentName];
+
+    if (status) {
+        sql += ' AND t.status = ?';
+        params.push(status);
+    }
+    
+    db.query(sql, params, (err, tasks) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ message: 'فشل جلب المهام.' });
+        }
+        res.status(200).json({ tasks: tasks });
     });
 };

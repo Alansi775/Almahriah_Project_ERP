@@ -4,6 +4,13 @@ const db = require('../config/db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { v4 } = require('uuid'); // new 
+let io; // Variable to hold the Socket.IO instance
+
+// ✅ دالة جديدة لتعيين كائن المقبس
+exports.setIoInstance = (socketIo) => {
+    io = socketIo;
+};
+
 
 exports.login = (req, res) => {
     const { username, password } = req.body;
@@ -27,6 +34,18 @@ exports.login = (req, res) => {
             return res.status(401).json({ message: 'اسم المستخدم أو كلمة المرور غير صحيحة.' });
         }
 
+        // ✅ إضافة هذا السطر لتحديث حالة تسجيل الدخول
+        const updateLoginStatusSql = 'UPDATE users SET isLoggedIn = 1 WHERE id = ?';
+        db.query(updateLoginStatusSql, [user.id], (err, result) => {
+            if (err) {
+                console.error('Error updating login status:', err);
+            }
+            // ✅ إرسال بث لجميع العملاء عند تسجيل الدخول
+            if (io) {
+                io.emit('user-status-changed', { userId: user.id.toString(), status: true });
+            }
+        });
+
         // إنشاء رمز وصول (Token)
         const token = jwt.sign(
             // تم إضافة "department" هنا
@@ -35,7 +54,6 @@ exports.login = (req, res) => {
             { expiresIn: '1h' } // صلاحية الرمز لساعة واحدة
         );
 
-
         // إزالة كلمة المرور من بيانات المستخدم قبل إرسالها
         delete user.password;
 
@@ -43,7 +61,7 @@ exports.login = (req, res) => {
         res.status(200).json({
             message: 'تم تسجيل الدخول بنجاح.',
             user: user,
-            token: token // <-- تم إضافة الرمز هنا
+            token: token
         });
     });
 };
@@ -55,6 +73,11 @@ exports.logout = (req, res) => {
         if (err) {
             console.error('Database error on logout:', err);
             return res.status(500).json({ message: 'فشل تسجيل الخروج.' });
+        }
+        
+        // ✅ إرسال بث لجميع العملاء عند تسجيل الخروج
+        if (io) {
+            io.emit('user-status-changed', { userId: userId.toString(), status: false });
         }
         res.status(200).json({ message: 'تم تسجيل الخروج بنجاح.' });
     });

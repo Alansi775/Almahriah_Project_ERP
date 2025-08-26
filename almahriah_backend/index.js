@@ -1,21 +1,51 @@
-// almahriah_backend/index.js
+// almahriah_backend/index.js هذا
 
-require('dotenv').config(); 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const socketIo = require('socket.io');
 const path = require('path');
 const db = require('./services/db');
+
+// استيراد المسارات
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-// استيراد مسار المهام الجديد
 const taskRoutes = require('./routes/taskRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
+const aiRoutes = require('./routes/aiRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
+// استيراد متحكم المحادثة والتحقق
+const chatController = require('./controllers/chatController');
+const authController = require('./controllers/authController'); // ✅ استيراد authController
 
 const app = express();
 const PORT = 5050;
-const HOST = '192.168.1.107'; // ضع هنا الـ IP الخاص بك
+const HOST = '192.168.1.52';
 
+// ================== تهيئة خادم HTTP و Socket.IO ==================
+
+const server = http.createServer(app);
+
+const io = new socketIo.Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
+// ✅ تمرير كائن المقبس الرئيسي (io) إلى authController
+authController.setIoInstance(io);
+
+io.on('connection', chatController.handleSocketConnection);
+
+// ================== نهاية تهيئة Socket.IO ==================
+
+
+// استخدام Middleware
 app.use(cors());
 app.use(express.json());
 
@@ -33,9 +63,12 @@ db.getConnection((err, connection) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
-// استخدام مسارات المهام الجديدة
 app.use('/api', taskRoutes);
+app.use('/api', dashboardRoutes);
+app.use('/api/employee', employeeRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/chat', chatRoutes);
 
-app.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, () => {
     console.log(`Server is running at http://${HOST}:${PORT}`);
 });

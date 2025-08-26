@@ -1,17 +1,21 @@
-// almahriah_frontend/lib/pages/qr_scanner_page.dart
+// lib/pages/qr_scanner_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:almahriah_frontend/models/user.dart';
 import 'package:almahriah_frontend/pages/admin_dashboard.dart';
 import 'package:almahriah_frontend/pages/hr_dashboard.dart';
 import 'package:almahriah_frontend/pages/manager_dashboard.dart';
 import 'package:almahriah_frontend/pages/employee_dashboard.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:almahriah_frontend/pages/login_page.dart';
+import 'package:almahriah_frontend/services/auth_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
+
+// ✅ تعريف قناة التواصل الناتيف
+const MethodChannel _dialogChannel = MethodChannel('com.almahriah.app/dialog');
 
 class QrScannerPage extends StatefulWidget {
   const QrScannerPage({super.key});
@@ -30,6 +34,32 @@ class _QrScannerPageState extends State<QrScannerPage> {
     super.dispose();
   }
 
+  // ✅ دالة جديدة لإرسال الرسائل عبر قنوات التواصل
+  Future<void> _showNativeMessage({
+    required bool isSuccess,
+    required String message,
+  }) async {
+    // ✅ في iOS، نستخدم قنوات التواصل
+    if (!kIsWeb && Platform.isIOS) {
+      if (isSuccess) {
+        // رسالة نجاح: نستخدم 'showToast'
+        await _dialogChannel.invokeMethod('showToast', {'message': message});
+        HapticFeedback.lightImpact(); // إضافة نبضة للنجاح
+      } else {
+        // رسالة خطأ: نستخدم 'showAlert'
+        await _dialogChannel.invokeMethod('showAlert', {'title': 'خطأ', 'message': message});
+      }
+    } else {
+      // ✅ في Android أو الويب، نستخدم ScaffoldMessenger
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message, style: GoogleFonts.almarai()),
+          backgroundColor: isSuccess ? Colors.green : Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _handleQrCode(String? qrToken) async {
     if (qrToken == null || _isProcessing) {
       return;
@@ -38,68 +68,39 @@ class _QrScannerPageState extends State<QrScannerPage> {
     setState(() {
       _isProcessing = true;
     });
+    
+    controller.stop();
 
     try {
-      final response = await http.post(
-        Uri.parse('http://192.168.1.107:5050/api/auth/qr-login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'qrToken': qrToken,
-        }),
-      );
+      final user = await AuthService.qrLogin(qrToken);
 
-      final responseBody = json.decode(response.body);
+      if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final user = User.fromJson(responseBody['user'], responseBody['token']);
-        
-        await _saveUserAndToken(user); 
+      // ✅ عرض الرسالة الناتيف أولاً
+      await _showNativeMessage(isSuccess: true, message: 'تم تسجيل الدخول بنجاح!');
 
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              responseBody['message'] ?? 'تم تسجيل الدخول بنجاح!',
-              style: GoogleFonts.almarai(),
-            ),
-          ),
-        );
-        controller.stop();
-        _navigateToDashboard(user);
+      // ✅ نستخدم تأخير بسيط لضمان ظهور الرسالة الناتيف
+      await Future.delayed(const Duration(milliseconds: 1500));
 
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              responseBody['message'] ?? 'فشل تسجيل الدخول باستخدام رمز QR',
-              style: GoogleFonts.almarai(),
-            ),
-          ),
-        );
-        controller.stop();
-        controller.start();
-      }
+      if (!mounted) return;
+      _navigateToDashboard(user);
+
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ في الاتصال بالخادم: $e', style: GoogleFonts.almarai()),
-        ),
-      );
-      controller.stop();
+
+      // ✅ عرض رسالة الخطأ الناتيف
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      await _showNativeMessage(isSuccess: false, message: errorMessage);
+
+      // إعادة تشغيل الماسح الضوئي بعد فشل العملية
       controller.start();
     } finally {
-      setState(() {
-        _isProcessing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
-  }
-
-  Future<void> _saveUserAndToken(User user) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('token', user.token);
-    await prefs.setString('user', json.encode(user.toJson()));
   }
 
   void _navigateToDashboard(User user) {
@@ -162,6 +163,33 @@ class _QrScannerPageState extends State<QrScannerPage> {
             ),
           ),
         ),
+        Align(
+          alignment: Alignment.center,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeOut,
+            builder: (BuildContext context, double value, Widget? child) {
+              return Transform.scale(
+                scale: 1 + value * 0.1,
+                child: Opacity(
+                  opacity: 1 - value,
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 0.7,
+                    height: MediaQuery.of(context).size.width * 0.7,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.blue.shade600.withOpacity(1 - value),
+                        width: 3,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -217,6 +245,11 @@ class _QrScannerPageState extends State<QrScannerPage> {
                 onPressed: () {
                   if (!_isProcessing) {
                     controller.start();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('الماسح جاهز لإعادة المسح', style: GoogleFonts.almarai()),
+                      ),
+                    );
                     setState(() {
                       _isProcessing = false;
                     });

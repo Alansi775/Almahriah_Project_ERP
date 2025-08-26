@@ -1,4 +1,4 @@
-// almahriah_frontend/lib/main.dart
+// lib/main.dart
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,8 +10,15 @@ import 'package:almahriah_frontend/pages/hr_dashboard.dart';
 import 'package:almahriah_frontend/pages/manager_dashboard.dart';
 import 'package:almahriah_frontend/pages/login_page.dart';
 import 'dart:convert';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
-void main() {
+// ✅ استيراد خدمة المقبس
+import 'package:almahriah_frontend/services/socket_service.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ar', null);
   runApp(const MyApp());
 }
 
@@ -23,6 +30,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Almahriah HR System',
+      locale: const Locale('ar', 'EG'),
+      supportedLocales: const [
+        Locale('en', ''),
+        Locale('ar', 'EG'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -59,6 +76,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (token != null && userJson != null) {
       try {
         final user = User.fromJson(json.decode(userJson), token);
+        
+        // ✅ إضافة الشرط لتهيئة خدمة المقبس
+        SocketService().initialize(user);
+        
         setState(() {
           switch (user.role) {
             case 'Admin':
@@ -76,7 +97,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
         });
       } catch (e) {
-        // If there is an error parsing the data, go to the login page
         setState(() {
           _initialWidget = const LoginPage();
         });
@@ -91,8 +111,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_initialWidget == null) {
-      // 🚨 هذا هو الجزء الجديد والمهم
-      // عرض شاشة تحميل حتى يتم تحديد الصفحة
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(color: Colors.blue),

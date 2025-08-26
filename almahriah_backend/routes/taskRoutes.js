@@ -30,4 +30,8 @@ router.delete('/tasks/by-department', auth.verifyToken, auth.isManager, taskCont
 // مسار لحذف مهمة فردية (متاح للمدراء فقط)
 router.delete('/tasks/:id', auth.verifyToken, auth.isManager, taskController.deleteTask);
 
+// ✅ New route for filtering tasks by status managers only
+router.get('/tasks/department', auth.verifyToken, auth.isManager, taskController.getDepartmentTasks);
+
+
 module.exports = router;

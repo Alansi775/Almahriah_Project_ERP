@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:almahriah_frontend/models/user.dart';
+// استيراد الـ Widgets المشتركة
+import 'package:almahriah_frontend/widgets/glassmorphism_widgets.dart';
 
 class LeaveRequestsPage extends StatefulWidget {
   final User user;
@@ -27,8 +28,16 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
   }
 
   // دالة لجلب طلبات الإجازة المعلقة
-  Future<List<dynamic>> _fetchPendingLeaveRequests() async {
-    final url = Uri.parse('http://192.168.1.107:5050/api/admin/leave-requests/pending');
+   Future<List<dynamic>> _fetchPendingLeaveRequests() async {
+    // ✅ Change the URL based on the user's role
+    String apiUrl;
+    if (widget.user.role == 'Manager') {
+      apiUrl = 'http://192.168.1.52:5050/api/admin/manager/leave-requests/pending';
+    } else {
+      apiUrl = 'http://192.168.1.52:5050/api/admin/leave-requests/pending';
+    }
+    
+    final url = Uri.parse(apiUrl);
     final response = await http.get(
       url,
       headers: {
@@ -46,7 +55,7 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
 
   // دالة لتحديث حالة الطلب
   Future<void> _updateLeaveRequestStatus(int requestId, String status) async {
-    final url = Uri.parse('http://192.168.1.107:5050/api/admin/leave-requests/update-status/$requestId');
+    final url = Uri.parse('http://192.168.1.52:5050/api/admin/leave-requests/update-status/$requestId');
     final response = await http.put(
       url,
       headers: {
@@ -74,81 +83,20 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
   
   // دالة لحساب عدد الأيام بين تاريخين
   int _calculateDays(String startDate, String endDate) {
-    final start = DateTime.parse(startDate);
-    final end = DateTime.parse(endDate);
+    final start = DateTime.parse(startDate).toLocal();
+    final end = DateTime.parse(endDate).toLocal();
     return end.difference(start).inDays + 1;
-  }
-
-  // دالة التصميم الزجاجي (Glassmorphism) مع إضافة الظلال
-  Widget _buildGlassCard({required Widget child, EdgeInsets? padding}) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: padding ?? const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-                width: 1.5,
-              ),
-            ),
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
-  
-  // دالة بناء وسم أنيق (Tag)
-  Widget _buildStylishTag(String text, {Color? color, required IconData icon}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color ?? Colors.blue.shade100,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: Colors.blue.shade800),
-          const SizedBox(width: 5),
-          Text(
-            text,
-            style: GoogleFonts.almarai(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.blue.shade800,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   // بناء بطاقة طلب الإجازة
   Widget _buildRequestCard(Map<String, dynamic> request) {
-    final startDate = DateFormat('yyyy-MM-dd').format(DateTime.parse(request['startDate']));
-    final endDate = DateFormat('yyyy-MM-dd').format(DateTime.parse(request['endDate']));
+    final startDate = DateFormat('yyyy-MM-dd').format(DateTime.parse(request['startDate']).toLocal());
+    final endDate = DateFormat('yyyy-MM-dd').format(DateTime.parse(request['endDate']).toLocal());
     final days = _calculateDays(request['startDate'], request['endDate']);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: _buildGlassCard(
+      child: buildGlassCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -178,9 +126,9 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
               runSpacing: 10,
               alignment: WrapAlignment.center,
               children: [
-                _buildStylishTag('$days يوم', icon: Icons.calendar_today),
-                _buildStylishTag('من $startDate', icon: Icons.date_range),
-                _buildStylishTag('إلى $endDate', icon: Icons.date_range),
+                buildGlassTag(text: '$days يوم', icon: Icons.calendar_today), 
+                buildGlassTag(text: 'من $startDate', icon: Icons.date_range),
+                buildGlassTag(text: 'إلى $endDate', icon: Icons.date_range),
               ],
             ),
             

@@ -1,11 +1,25 @@
+// ✅ Replace the entire content of your task_details_page.dart file with this code.
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
+import 'package:intl/intl.dart';
 
 class TaskDetailsPage extends StatelessWidget {
   final Map<String, dynamic> task;
 
   const TaskDetailsPage({super.key, required this.task});
+
+  // Helper function to format dates
+  String _formatDate(String? dateString) {
+    if (dateString == null) return 'غير محدد';
+    try {
+      final date = DateTime.parse(dateString).toLocal();
+      return DateFormat('yyyy/MM/dd – HH:mm').format(date);
+    } catch (e) {
+      return 'تاريخ غير صالح';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,10 +112,29 @@ class TaskDetailsPage extends StatelessWidget {
                       color: _getStatusColor(task['status'] ?? ''),
                     ),
                     _buildIconCard(
-                      icon: Icons.calendar_today,
+                      icon: Icons.assignment_ind,
                       title: 'تم الإسناد بواسطة',
                       content: task['assignedByName'] ?? 'غير محدد',
                     ),
+                    _buildIconCard(
+                      icon: Icons.history,
+                      title: 'تاريخ الإنشاء',
+                      content: _formatDate(task['createdAt']),
+                    ),
+                    if (task['inProgressAt'] != null)
+                      _buildIconCard(
+                        icon: Icons.play_circle_fill,
+                        title: 'تاريخ البدء',
+                        content: _formatDate(task['inProgressAt']),
+                        color: Colors.blue.shade800,
+                      ),
+                    if (task['completedAt'] != null)
+                      _buildIconCard(
+                        icon: Icons.check_circle, // ✅ Corrected icon name
+                        title: 'تاريخ الانتهاء',
+                        content: _formatDate(task['completedAt']),
+                        color: Colors.green.shade800,
+                      ),
                   ],
                 ),
               ],
@@ -183,6 +216,8 @@ class TaskDetailsPage extends StatelessWidget {
         return 'مكتمل';
       case 'pending':
         return 'لم تبدأ بعد';
+      case 'canceled':
+        return 'ملغاة';
       default:
         return 'غير محدد';
     }
@@ -196,6 +231,8 @@ class TaskDetailsPage extends StatelessWidget {
         return Colors.green.shade800;
       case 'pending':
         return Colors.blue.shade800;
+      case 'canceled':
+        return Colors.red.shade800;
       default:
         return Colors.grey.shade800;
     }
