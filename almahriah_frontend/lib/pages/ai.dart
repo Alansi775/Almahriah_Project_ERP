@@ -68,7 +68,7 @@ class _AiChatPageState extends State<AiChatPage> with SingleTickerProviderStateM
 
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.1.52:5050/api/ai/chat'),
+        Uri.parse('http://192.168.3.87:5050/api/ai/chat'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',

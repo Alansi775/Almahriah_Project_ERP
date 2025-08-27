@@ -1,4 +1,6 @@
-import 'dart:async'; // Added for StreamSubscription
+// page: almahriah_frontend/lib/pages/chat_list_page.dart
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -8,8 +10,6 @@ import 'package:almahriah_frontend/pages/chat_page.dart';
 import 'package:almahriah_frontend/services/auth_service.dart';
 import 'package:almahriah_frontend/custom_page_route.dart';
 import 'dart:ui';
-
-// ✅ استيراد خدمة المقبس الجديدة
 import 'package:almahriah_frontend/services/socket_service.dart';
 
 class ChatListPage extends StatefulWidget {
@@ -27,12 +27,9 @@ class _ChatListPageState extends State<ChatListPage> {
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
 
-  // ✅ استخدام خدمة المقبس
   final SocketService _socketService = SocketService();
   
-  // ✅ متغيرات لحالة المقبس والمستخدمين
   bool _socketConnected = false;
-  late StreamSubscription _messagesSubscription;
 
   @override
   void initState() {
@@ -41,10 +38,7 @@ class _ChatListPageState extends State<ChatListPage> {
     
     _socketConnected = _socketService.isConnected.value;
     
-    // ✅ الاستماع للتغيرات في حالة الاتصال
     _socketService.isConnected.addListener(_updateConnectionStatus);
-    
-    // ✅ الاستماع للتغيرات في حالة المستخدمين
     _socketService.userStatus.addListener(_updateUsersStatus);
 
     _scrollController.addListener(() {
@@ -110,7 +104,6 @@ class _ChatListPageState extends State<ChatListPage> {
             isLoading = false;
           });
           
-          // تحديث الحالة فورًا بعد جلب القائمة
           _updateUsersStatus();
         }
       } else {
@@ -137,7 +130,6 @@ class _ChatListPageState extends State<ChatListPage> {
     }
   }
 
-  // ✅ إعادة محاولة الاتصال عبر الخدمة
   void _retryConnection() {
     if (!_socketService.isConnected.value) {
       _socketService.initialize(widget.user);
@@ -158,7 +150,6 @@ class _ChatListPageState extends State<ChatListPage> {
               style: GoogleFonts.almarai(fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 8),
-            // مؤشر حالة الاتصال
             Container(
               width: 8,
               height: 8,
@@ -170,7 +161,6 @@ class _ChatListPageState extends State<ChatListPage> {
           ],
         ),
         actions: [
-          // زر إعادة المحاولة إذا انقطع الاتصال
           if (!_socketConnected)
             IconButton(
               icon: const Icon(Icons.refresh, color: Colors.red),
@@ -191,7 +181,6 @@ class _ChatListPageState extends State<ChatListPage> {
           constraints: const BoxConstraints(maxWidth: 800),
           child: Column(
             children: [
-              // رسالة حالة الاتصال
               if (!_socketConnected)
                 Container(
                   width: double.infinity,
@@ -217,7 +206,7 @@ class _ChatListPageState extends State<ChatListPage> {
                         : RefreshIndicator(
                             onRefresh: () async {
                               await _fetchUsers();
-                              _retryConnection(); // Ensure a connection is re-attempted on pull-to-refresh
+                              _retryConnection();
                             },
                             color: const Color(0xFF2C3E50),
                             child: Scrollbar(
@@ -241,7 +230,6 @@ class _ChatListPageState extends State<ChatListPage> {
                                       ? user['fullName'][0].toUpperCase()
                                       : '?';
                                   
-                                  // ✅ قراءة حالة isLoggedIn من الكائن
                                   final bool isOnline = user['isLoggedIn'] == 1;
 
                                   return _buildUserTile(context, user, initials, isOnline);
@@ -287,7 +275,6 @@ class _ChatListPageState extends State<ChatListPage> {
                 ),
               );
               
-              // تحديث البيانات عند العودة من صفحة المحادثة
               if (result == true && mounted) {
                 _fetchUsers();
               }

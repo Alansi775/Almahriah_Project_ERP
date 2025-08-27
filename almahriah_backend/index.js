@@ -1,4 +1,4 @@
-// almahriah_backend/index.js هذا
+// almahriah_backend/index.js
 
 require('dotenv').config();
 const express = require('express');
@@ -20,11 +20,11 @@ const chatRoutes = require('./routes/chatRoutes');
 
 // استيراد متحكم المحادثة والتحقق
 const chatController = require('./controllers/chatController');
-const authController = require('./controllers/authController'); // ✅ استيراد authController
+const authController = require('./controllers/authController');
 
 const app = express();
 const PORT = 5050;
-const HOST = '192.168.1.52';
+const HOST = '192.168.3.87';
 
 // ================== تهيئة خادم HTTP و Socket.IO ==================
 
@@ -40,7 +40,8 @@ const io = new socketIo.Server(server, {
 // ✅ تمرير كائن المقبس الرئيسي (io) إلى authController
 authController.setIoInstance(io);
 
-io.on('connection', chatController.handleSocketConnection);
+// ✅ ربط متحكم المحادثة بحدث الاتصال
+io.on('connection', chatController.registerChatEvents);
 
 // ================== نهاية تهيئة Socket.IO ==================
 

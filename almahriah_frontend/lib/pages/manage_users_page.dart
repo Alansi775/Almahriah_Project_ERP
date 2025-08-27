@@ -66,7 +66,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
     print('DEBUG: Fetching users...');
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.52:5050/api/admin/users'),
+        Uri.parse('http://192.168.3.87:5050/api/admin/users'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',
@@ -106,7 +106,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
     }
     try {
       final response = await http.put(
-        Uri.parse('http://192.168.1.52:5050/api/admin/users/$userId/toggle-active'),
+        Uri.parse('http://192.168.3.87:5050/api/admin/users/$userId/toggle-active'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',
@@ -135,7 +135,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
     }
     try {
       final response = await http.delete(
-        Uri.parse('http://192.168.1.52:5050/api/admin/users/$userId'),
+        Uri.parse('http://192.168.3.87:5050/api/admin/users/$userId'),
         headers: {
           'Authorization': 'Bearer ${widget.user.token}',
         },

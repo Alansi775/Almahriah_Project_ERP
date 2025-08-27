@@ -73,7 +73,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     });
 
     try {
-      final url = Uri.parse('http://192.168.1.52:5050/api/admin/leave-requests/employee/${widget.user.id}');
+      final url = Uri.parse('http://192.168.3.87:5050/api/admin/leave-requests/employee/${widget.user.id}');
       final response = await http.get(
         url,
         headers: {
@@ -112,7 +112,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     });
 
     try {
-      final url = Uri.parse('http://192.168.1.52:5050/api/tasks/by-user');
+      final url = Uri.parse('http://192.168.3.87:5050/api/tasks/by-user');
       final response = await http.get(
         url,
         headers: {
@@ -162,7 +162,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   final String taskId = task['id'].toString();
 
   try {
-    final url = Uri.parse('http://192.168.1.52:5050/api/tasks/$taskId/status');
+    final url = Uri.parse('http://192.168.3.87:5050/api/tasks/$taskId/status');
 
     Map<String, dynamic> body = {'status': newStatus};
     if (newStatus == 'completed') {

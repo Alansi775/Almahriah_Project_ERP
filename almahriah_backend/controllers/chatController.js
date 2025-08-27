@@ -1,73 +1,218 @@
-// almahriah_backend/controllers/chatController.js
+// almahriah_backend/controllers/chatController.js - النسخة المصححة والكاملة
 
-const db = require('../config/db');
-const activeUsers = new Map(); // Map to store active users: userId -> socketId
+const db = require('../services/db');
+const activeUsers = require('../utils/activeUsers'); 
 
-// Main Socket.IO connection handler (only for socket events)
-exports.handleSocketConnection = (socket) => {
+const registerChatEvents = (socket) => {
     const userId = socket.handshake.query.userId;
     console.log(`User connected: ${socket.id} (User ID: ${userId})`);
 
     if (userId) {
         activeUsers.set(userId, socket.id);
-        console.log(`User ${userId} is now active.`);
+        console.log(`User ${userId} is now active. Total active users: ${activeUsers.size}`);
 
-        // ✨ الإضافة رقم 1: إرسال إشعار للمستخدمين الآخرين بأن هذا المستخدم أصبح متصلًا
         socket.broadcast.emit('user-status-changed', {
             userId: userId,
-            status: true // true تعني متصل
+            status: true
         });
     }
 
-    // Handle new message event
+    // ✅ تحديث معالج إرسال الرسائل لدعم الرد مع المحتوى والوقت
     socket.on('sendMessage', (data) => {
-        const { senderId, receiverId, content } = data;
-        const sql = 'INSERT INTO messages (senderId, receiverId, content, deliveredStatus) VALUES (?, ?, ?, ?)';
-        
-        const isReceiverOnline = activeUsers.has(receiverId.toString());
+        const { senderId, receiverId, content, tempId, replyToMessageId, replyToMessageContent, createdAt } = data;
+        const deliveredStatus = activeUsers.has(receiverId.toString()) ? 1 : 0;
+        const readStatus = 0;
+        const messageTimestamp = createdAt ? new Date(createdAt) : new Date();
 
-        db.query(sql, [senderId, receiverId, content, isReceiverOnline], (error, result) => {
+        console.log('Sending message with reply:', {
+            senderId,
+            receiverId,
+            content,
+            replyToMessageId,
+            replyToMessageContent
+        });
+
+        // ✅ إضافة replyToMessageContent في قاعدة البيانات
+        const sql = 'INSERT INTO messages (senderId, receiverId, content, deliveredStatus, readStatus, replyToMessageId, replyToMessageContent, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+        db.query(sql, [senderId, receiverId, content, deliveredStatus, readStatus, replyToMessageId, replyToMessageContent, messageTimestamp], (error, result) => {
             if (error) {
                 console.error('Error sending message:', error);
+                socket.emit('messageError', { error: 'Failed to send message' });
                 return;
             }
+
             const messageId = result.insertId;
             const messageData = {
-                id: messageId,
+                id: messageId.toString(),
                 senderId: senderId.toString(),
                 receiverId: receiverId.toString(),
                 content: content,
-                readStatus: false,
-                deliveredStatus: isReceiverOnline,
-                createdAt: new Date()
+                readStatus: readStatus === 1,
+                deliveredStatus: deliveredStatus === 1,
+                replyToMessageId: replyToMessageId,
+                replyToMessageContent: replyToMessageContent, // ✅ إضافة المحتوى
+                createdAt: messageTimestamp.toISOString()
             };
 
             const receiverSocketId = activeUsers.get(receiverId.toString());
             if (receiverSocketId) {
+                // إرسال الرسالة للمستلم مع بيانات الرد الكاملة
                 socket.to(receiverSocketId).emit('receiveMessage', messageData);
+                // إرسال إشعار "تم التسليم" للمرسل
+                socket.emit('messageStatusUpdate', { 
+                    messageId: messageId.toString(), 
+                    tempId: tempId, 
+                    status: 'delivered' 
+                });
+                console.log(`Message ${messageId} delivered to user ${receiverId} with reply data.`);
+            } else {
+                // إرسال إشعار "تم الإرسال" للمرسل (المستلم غير متصل)
+                socket.emit('messageStatusUpdate', { 
+                    messageId: messageId.toString(), 
+                    tempId: tempId, 
+                    status: 'sent' 
+                });
+                console.log(`Message ${messageId} sent to offline user ${receiverId}.`);
             }
-            
-            socket.emit('messageSent', messageData);
         });
     });
 
-    // Handle message read event
-    socket.on('readMessage', (data) => {
-        const { senderId, messageId } = data;
-        const sql = 'UPDATE messages SET readStatus = TRUE WHERE id = ?';
+    // معالج حذف الرسائل
+    socket.on('deleteMessage', (data) => {
+        const { messageId, senderId, receiverId } = data;
         
-        db.query(sql, [messageId], (error, result) => {
+        if (socket.handshake.query.userId.toString() !== senderId.toString()) {
+            console.log(`Unauthorized delete attempt by user ${socket.handshake.query.userId} for message ${messageId}.`);
+            return;
+        }
+
+        const sql = 'DELETE FROM messages WHERE id = ? AND senderId = ?';
+        db.query(sql, [messageId, senderId], (error, result) => {
             if (error) {
-                console.error('Error updating read status:', error);
+                console.error('Error deleting message:', error);
+                return;
             }
-            const senderSocketId = activeUsers.get(senderId.toString());
-            if (senderSocketId) {
-                socket.to(senderSocketId).emit('messageRead', { messageId });
+
+            if (result.affectedRows > 0) {
+                const receiverSocketId = activeUsers.get(receiverId.toString());
+                if (receiverSocketId) {
+                    socket.to(receiverSocketId).emit('messageDeleted', { messageId });
+                }
+                socket.emit('messageDeleted', { messageId });
+                console.log(`Message ${messageId} deleted by user ${senderId}.`);
+            } else {
+                console.log(`No rows affected. Message ${messageId} not found or not owned by sender ${senderId}.`);
             }
         });
     });
 
-    // Handle typing event
+    // ✅ تحديث معالج تعديل الرسائل
+    socket.on('editMessage', (data) => {
+        const { messageId, senderId, newContent, receiverId } = data;
+        
+        if (socket.handshake.query.userId.toString() !== senderId.toString()) {
+            console.log(`Unauthorized edit attempt by user ${socket.handshake.query.userId} for message ${messageId}.`);
+            return;
+        }
+
+        // ✅ تحديث العمودين: content و updatedAt
+        const sql = 'UPDATE messages SET content = ?, updatedAt = ? WHERE id = ? AND senderId = ?';
+        const editedAt = new Date();
+        db.query(sql, [newContent, editedAt, messageId, senderId], (error, result) => {
+            if (error) {
+                console.error('Error editing message:', error);
+                return;
+            }
+
+            if (result.affectedRows > 0) {
+                const editedMessageData = {
+                    id: messageId.toString(),
+                    senderId: senderId.toString(),
+                    newContent: newContent,
+                    // ✅ إرسال وقت التعديل
+                    updatedAt: editedAt.toISOString() 
+                };
+                
+                const receiverSocketId = activeUsers.get(receiverId.toString());
+                if (receiverSocketId) {
+                    socket.to(receiverSocketId).emit('messageEdited', editedMessageData);
+                }
+                socket.emit('messageEdited', editedMessageData);
+                console.log(`Message ${messageId} edited by user ${senderId}.`);
+            } else {
+                console.log(`No rows affected. Message ${messageId} not found or not owned by sender ${senderId}.`);
+            }
+        });
+    });
+
+    // معالج قراءة الرسائل
+    socket.on('readMessage', (data) => {
+        const { messageId, senderId, receiverId } = data;
+        console.log(`Processing readMessage: MessageID=${messageId}, SenderID=${senderId}, ReceiverID=${receiverId}`);
+        
+        const checkSql = 'SELECT id, senderId, receiverId, readStatus FROM messages WHERE id = ?';
+        db.query(checkSql, [messageId], (checkError, checkResult) => {
+            if (checkError) {
+                console.error('Error checking message:', checkError);
+                return;
+            }
+
+            if (checkResult.length === 0) {
+                console.log(`Message ${messageId} not found in database.`);
+                return;
+            }
+
+            const messageData = checkResult[0];
+            console.log(`Message data: SenderId=${messageData.senderId}, ReceiverId=${messageData.receiverId}, ReadStatus=${messageData.readStatus}`);
+
+            if (messageData.receiverId.toString() !== receiverId.toString()) {
+                console.log(`User ${receiverId} is not the receiver of message ${messageId}. Actual receiver: ${messageData.receiverId}`);
+                return;
+            }
+
+            if (messageData.readStatus === 1) {
+                console.log(`Message ${messageId} is already read, sending read status to sender ${messageData.senderId}`);
+                const senderSocketId = activeUsers.get(messageData.senderId.toString());
+                if (senderSocketId) {
+                    socket.to(senderSocketId).emit('messageStatusUpdate', { 
+                        messageId: messageId.toString(), 
+                        status: 'read' 
+                    });
+                    console.log(`Read status sent to sender ${messageData.senderId} for already read message ${messageId}.`);
+                }
+                return;
+            }
+
+            const updateSql = 'UPDATE messages SET readStatus = 1, deliveredStatus = 1 WHERE id = ? AND receiverId = ? AND readStatus = 0';
+            db.query(updateSql, [messageId, receiverId], (error, result) => {
+                if (error) {
+                    console.error('Error marking message as read:', error);
+                    return;
+                }
+
+                console.log(`Database update result: affectedRows=${result.affectedRows} for messageId=${messageId}`);
+
+                if (result.affectedRows > 0) {
+                    const senderSocketId = activeUsers.get(messageData.senderId.toString());
+                    console.log(`Looking for sender ${messageData.senderId}: socketId=${senderSocketId}`);
+                    
+                    if (senderSocketId) {
+                        socket.to(senderSocketId).emit('messageStatusUpdate', { 
+                            messageId: messageId.toString(), 
+                            status: 'read' 
+                        });
+                        console.log(`Message ${messageId} read status sent to sender ${messageData.senderId}.`);
+                    } else {
+                        console.log(`Sender ${messageData.senderId} is not online to receive read notification.`);
+                    }
+                } else {
+                    console.log(`No rows affected when marking message ${messageId} as read.`);
+                }
+            });
+        });
+    });
+
+    // معالج الكتابة
     socket.on('typing', (data) => {
         const receiverSocketId = activeUsers.get(data.receiverId.toString());
         if (receiverSocketId) {
@@ -78,30 +223,28 @@ exports.handleSocketConnection = (socket) => {
         }
     });
 
-    // Handle user disconnections
+    // معالج قطع الاتصال
     socket.on('disconnect', () => {
         const userId = [...activeUsers.entries()].find(([key, val]) => val === socket.id)?.[0];
         if (userId) {
             activeUsers.delete(userId);
-            console.log(`User ${userId} disconnected.`);
+            console.log(`User ${userId} disconnected. Total active users: ${activeUsers.size}`);
 
-            // ✨ الإضافة رقم 2: إرسال إشعار للمستخدمين الآخرين بأن هذا المستخدم أصبح غير متصل
             socket.broadcast.emit('user-status-changed', {
                 userId: userId,
-                status: false // false تعني غير متصل
+                status: false
             });
         }
     });
 };
 
-// ✅ REST API endpoints (must be outside the handleSocketConnection function)
-
-exports.getChatHistory = (req, res) => {
+// ✅ تحديث API لجلب تاريخ المحادثة مع دعم replyToMessageContent و updatedAt
+const getChatHistory = (req, res) => {
     const { receiverId } = req.params;
     const senderId = req.user.id;
 
     const sql = `
-        SELECT *
+        SELECT id, senderId, receiverId, content, deliveredStatus, readStatus, createdAt, replyToMessageId, replyToMessageContent, updatedAt
         FROM messages
         WHERE (senderId = ? AND receiverId = ?) OR (senderId = ? AND receiverId = ?)
         ORDER BY createdAt ASC;
@@ -112,11 +255,27 @@ exports.getChatHistory = (req, res) => {
             console.error('Error getting chat history:', error);
             return res.status(500).json({ message: 'Failed to retrieve chat history.' });
         }
-        res.status(200).json(rows);
+        
+        // تحويل البيانات للتأكد من التنسيق الصحيح
+        const formattedMessages = rows.map(row => ({
+            id: row.id.toString(),
+            senderId: row.senderId.toString(),
+            receiverId: row.receiverId.toString(),
+            content: row.content,
+            deliveredStatus: row.deliveredStatus === 1,
+            readStatus: row.readStatus === 1,
+            replyToMessageId: row.replyToMessageId,
+            replyToMessageContent: row.replyToMessageContent, 
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt 
+        }));
+        
+        console.log(`Retrieved ${formattedMessages.length} messages for chat between ${senderId} and ${receiverId}`);
+        res.status(200).json(formattedMessages);
     });
 };
 
-exports.deleteAllChats = (req, res) => {
+const deleteAllChats = (req, res) => {
     const sql = 'DELETE FROM messages';
 
     db.query(sql, (error, result) => {
@@ -128,7 +287,7 @@ exports.deleteAllChats = (req, res) => {
     });
 };
 
-exports.getChatUsers = (req, res) => {
+const getChatUsers = (req, res) => {
     const userId = req.user.id;
     const sql = 'SELECT id, fullName, role, department, isLoggedIn FROM users WHERE id != ?';
 
@@ -139,4 +298,11 @@ exports.getChatUsers = (req, res) => {
         }
         res.status(200).json(rows);
     });
+};
+
+module.exports = {
+    registerChatEvents,
+    getChatHistory,
+    deleteAllChats,
+    getChatUsers
 };
