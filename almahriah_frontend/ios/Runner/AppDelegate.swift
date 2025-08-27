@@ -23,7 +23,6 @@ import UIKit
       let type = args["type"] as? String
       let title = args["title"] as? String ?? "تنبيه"
       
-      // ✅ Handle the new method 'showConfirmationAlert'
       if call.method == "showConfirmationAlert" {
         self?.showConfirmationAlert(title: title, message: message, result: result)
       } else if call.method == "showAlert" {
@@ -32,6 +31,11 @@ import UIKit
       } else if call.method == "showToast" {
         self?.showSuccessToast(message: message)
         result(nil)
+      } else if call.method == "showActionSheet" {
+          let actions = args["actions"] as? [[String: String]] ?? []
+          self?.showNativeActionSheet(title: title, actions: actions, result: result)
+      } else if call.method == "showEditMessageDialog" { // ✅ New method handler
+          self?.showNativeEditMessageDialog(title: "تعديل الرسالة", args: args, result: result)
       } else {
         result(FlutterMethodNotImplemented)
       }
@@ -40,27 +44,77 @@ import UIKit
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // ✅ New method for confirmation alerts (with "OK" and "Cancel" buttons)
-  private func showConfirmationAlert(title: String, message: String, result: @escaping FlutterResult) {
-      let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-      
-      // "Delete" action returns 'true' to Flutter
-      alertController.addAction(UIAlertAction(title: "حذف", style: .destructive, handler: { _ in
-          result(true)
-      }))
-      
-      // "Cancel" action returns 'false' to Flutter
-      alertController.addAction(UIAlertAction(title: "إلغاء", style: .cancel, handler: { _ in
-          result(false)
-      }))
-      
+  // ✅ New method to show a native iOS action sheet
+  private func showNativeActionSheet(title: String, actions: [[String: String]], result: @escaping FlutterResult) {
+      let alertController = UIAlertController(title: title, message: nil, preferredStyle: .actionSheet)
+
+      for actionData in actions {
+          if let actionTitle = actionData["title"], let actionId = actionData["action"] {
+              let actionStyle: UIAlertAction.Style = (actionId.contains("delete")) ? .destructive : .default
+              let action = UIAlertAction(title: actionTitle, style: actionStyle) { _ in
+                  result(actionId)
+              }
+              alertController.addAction(action)
+          }
+      }
+
+      alertController.addAction(UIAlertAction(title: "إلغاء", style: .cancel) { _ in
+          result(nil)
+      })
+
       if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-          let rootViewController = scene.windows.first?.rootViewController {
+         let rootViewController = scene.windows.first?.rootViewController {
           rootViewController.present(alertController, animated: true, completion: nil)
       }
   }
 
-  // ✅ Updated function to show a native iOS alert (for errors and confirmations)
+  // ✅ New method to show a native iOS edit message dialog
+  private func showNativeEditMessageDialog(title: String, args: [String: Any], result: @escaping FlutterResult) {
+      let alertController = UIAlertController(title: title, message: nil, preferredStyle: .alert)
+      let initialContent = args["initialContent"] as? String ?? ""
+
+      alertController.addTextField { (textField) in
+          textField.text = initialContent
+          textField.placeholder = "اكتب رسالتك"
+      }
+
+      alertController.addAction(UIAlertAction(title: "حفظ", style: .default, handler: { _ in
+          if let newContent = alertController.textFields?.first?.text, !newContent.isEmpty {
+              result(newContent)
+          } else {
+              result(nil)
+          }
+      }))
+
+      alertController.addAction(UIAlertAction(title: "إلغاء", style: .cancel, handler: { _ in
+          result(nil)
+      }))
+
+      if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+         let rootViewController = scene.windows.first?.rootViewController {
+          rootViewController.present(alertController, animated: true, completion: nil)
+      }
+  }
+
+  // ✅ Existing method for confirmation alerts
+  private func showConfirmationAlert(title: String, message: String, result: @escaping FlutterResult) {
+    let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+    
+    alertController.addAction(UIAlertAction(title: "حذف", style: .destructive, handler: { _ in
+        result(true)
+    }))
+    
+    alertController.addAction(UIAlertAction(title: "إلغاء", style: .cancel, handler: { _ in
+        result(false)
+    }))
+    
+    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+        let rootViewController = scene.windows.first?.rootViewController {
+        rootViewController.present(alertController, animated: true, completion: nil)
+    }
+  }
+
+  // ✅ Existing method to show a native iOS alert
   private func showNativeAlert(title: String, message: String) {
     let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
     alertController.addAction(UIAlertAction(title: "موافق", style: .default, handler: nil))
@@ -71,12 +125,11 @@ import UIKit
     }
   }
     
-  // ✅ New function to show a native iOS toast-like message (for success)
+  // ✅ Existing method to show a native iOS toast-like message
   private func showSuccessToast(message: String) {
     if let window = UIApplication.shared.windows.first {
       let toastLabel = UILabel(frame: CGRect(x: 20, y: window.frame.size.height - 100, width: window.frame.size.width - 40, height: 50))
       
-      // ✅ Use dynamic system colors
       toastLabel.backgroundColor = UIColor.systemGray.withAlphaComponent(0.9)
       toastLabel.textColor = UIColor.white
       

@@ -1,4 +1,4 @@
-// lib/pages/chat_page.dart - النسخة النهائية والمصححة
+// lib/pages/chat_page.dart
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -13,9 +13,13 @@ import 'package:almahriah_frontend/services/socket_service.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
-import 'package:almahriah_frontend/widgets/message_options_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:almahriah_frontend/widgets/edit_message_dialog.dart';
 import 'package:almahriah_frontend/widgets/message_bubble.dart';
+import 'package:almahriah_frontend/widgets/chat/chat_app_bar.dart';
+import 'package:almahriah_frontend/widgets/chat/chat_message_list.dart';
+import 'package:almahriah_frontend/widgets/chat/chat_message_input.dart';
 
 const platform = MethodChannel("com.almahriah.app/dialog");
 
@@ -31,10 +35,13 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, TickerProviderStateMixin {
   final TextEditingController _textController = TextEditingController();
-  final List<dynamic> _messages = [];
+  List<dynamic> _messages = [];
   final ScrollController _scrollController = ScrollController();
   
   final SocketService _socketService = SocketService();
+
+  Set<String> _selectedMessageIds = {};
+  bool _isSelectionMode = false; 
   
   bool _isTyping = false;
   bool _isOnline = false;
@@ -45,17 +52,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
   late StreamSubscription _messagesSubscription;
   late StreamSubscription _messageStatusSubscription;
   
-  // ✅ متغيرات جديدة للسحب والتظليل
   final Map<String, GlobalKey> _messageKeys = {};
   String? _highlightedMessageId;
 
   dynamic _replyingToMessage;
   final FocusNode _focusNode = FocusNode();
   
-  final Map<String, AnimationController> _statusAnimationControllers = {};
-  final Map<String, Animation<double>> _statusAnimations = {};
-
   bool get _isIOS => !kIsWeb && Platform.isIOS;
+
+  late final User _user = widget.user;
+
+  bool _isChatLoading = false;
+  bool _hasMoreMessages = true;
 
   @override
   void initState() {
@@ -65,7 +73,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     _isOnline = _socketService.userStatus.value[widget.targetUser['id'].toString()] ?? false;
     _isTargetUserTyping = _socketService.typingStatus.value[widget.targetUser['id'].toString()] ?? false;
 
-    // ✅ إضافة listener للكيبورد
     _focusNode.addListener(_onFocusChange);
 
     _messagesSubscription = _socketService.messagesStream.listen((data) {
@@ -95,11 +102,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients && _messages.isNotEmpty) {
           _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-
-          if(_isIOS){
+          if (_isIOS) {
             HapticFeedback.mediumImpact();
           }
-
           Future.delayed(const Duration(milliseconds: 800), () {
             _markAllMessagesAsRead();
           });
@@ -130,10 +135,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     });
   }
 
-  // ✅ إضافة دالة للتعامل مع تغيير حالة الفوكس
   void _onFocusChange() {
     if (_focusNode.hasFocus) {
-      // عندما يفتح الكيبورد، انتظر قليلاً ثم اسحب لأسفل
       Future.delayed(const Duration(milliseconds: 450), () {
         _scrollToBottom();
       });
@@ -147,35 +150,28 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
         setState(() {
           _isOnline = newOnlineStatus;
         });
-        if (_isOnline) {
+        if (newOnlineStatus) {
           _updateDeliveryStatusForUndeliveredMessages();
         }
       }
     }
   }
 
-  // ✅ دالة جديدة ومحسنة للسحب والتظليل
   void _scrollToAndHighlight(String? messageId) {
     if (messageId == null) return;
-
     final GlobalKey? key = _messageKeys[messageId];
     if (key != null) {
       final BuildContext? context = key.currentContext;
       if (context != null) {
-        // قم بتفعيل التظليل
         setState(() {
           _highlightedMessageId = messageId;
         });
-
-        // السحب إلى موضع الرسالة باستخدام Scrollable.ensureVisible
         Scrollable.ensureVisible(
           context,
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
-          alignment: 0.5, // يضع العنصر في منتصف الشاشة
+          alignment: 0.5,
         );
-        
-        // إيقاف التظليل بعد فترة وجيزة
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
             setState(() {
@@ -197,7 +193,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
 
   void _onScroll() {
     _markAllMessagesAsRead();
-    
     if (_scrollController.position.pixels <= 0 && !_isRefreshing) {
       _handleRefresh();
     }
@@ -205,24 +200,42 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
 
   Future<void> _handleRefresh() async {
     if (_isRefreshing) return;
-    
     setState(() {
       _isRefreshing = true;
     });
-
     if (_isIOS) {
       HapticFeedback.mediumImpact();
     } 
-
     await Future.delayed(const Duration(seconds: 2));
-    
     await _fetchChatHistory();
-    
     if (mounted) {
       setState(() {
         _isRefreshing = false;
       });
     }
+  }
+  
+  void _onReply(dynamic message) {
+    _replyToMessage(message);
+  }
+
+  void _onLongPress(dynamic message) {
+    _onMessageLongPress(message);
+  }
+
+  void _onMessageTap(dynamic message) {
+    _toggleMessageSelection(message);
+  }
+
+  Future<void> _fetchMoreMessages() async {
+    if (_isChatLoading || !_hasMoreMessages) return;
+    setState(() {
+      _isChatLoading = true;
+    });
+    await Future.delayed(const Duration(seconds: 1));
+    setState(() {
+      _isChatLoading = false;
+    });
   }
 
   void _updateDeliveryStatusForUndeliveredMessages() {
@@ -237,6 +250,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
   }
 
   void _updateMessageStatus(dynamic data) {
+    if (data['action'] == 'bulkDeleted') {
+      final List<String> messageIds = List<String>.from(data['messageIds']);
+      setState(() {
+        _messages.removeWhere((msg) => messageIds.contains(msg['id'].toString()));
+      });
+      return;
+    }
     if (data['action'] == 'deleted') {
       final messageId = data['messageId'].toString();
       setState(() {
@@ -244,7 +264,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
       });
       return;
     }
-
     if (data['action'] == 'edited') {
       final messageId = data['messageId'].toString();
       final newContent = data['newContent'];
@@ -258,27 +277,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
       }
       return;
     }
-
     final String messageId = data['messageId'].toString();
     final String? tempId = data['tempId']?.toString();
     final String status = data['status'];
-    
     int messageIndex = -1;
-    
     if (tempId != null) {
       messageIndex = _messages.indexWhere((msg) => msg['id'].toString() == tempId);
     }
-    
     if (messageIndex == -1) {
       messageIndex = _messages.indexWhere((msg) => msg['id'].toString() == messageId);
     }
-    
     if (messageIndex != -1) {
       setState(() {
         if (tempId != null && _messages[messageIndex]['id'].toString() == tempId) {
           _messages[messageIndex]['id'] = messageId;
         }
-        
         if (status == 'delivered') {
           _messages[messageIndex]['deliveredStatus'] = true;
         } else if (status == 'read') {
@@ -292,7 +305,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
     if (state == AppLifecycleState.resumed) {
       Future.delayed(const Duration(milliseconds: 500), () {
         _markAllMessagesAsRead();
@@ -304,23 +316,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
 
   Future<void> _fetchChatHistory() async {
     if (!mounted) return;
-    
     setState(() {
       _isLoading = true;
     });
-
     try {
       final response = await http.get(
         Uri.parse('${AuthService.baseUrl}/api/chat/history/${widget.targetUser['id']}'),
-        headers: {'Authorization': 'Bearer ${widget.user.token}'},
+        headers: {'Authorization': 'Bearer ${_user.token}'},
       );
-
       if (response.statusCode == 200) {
         if (mounted) {
           final List<dynamic> fetchedMessages = json.decode(response.body);
+          final prefs = await SharedPreferences.getInstance();
+          final String chatKey = 'deleted_messages_${_user.id}_${widget.targetUser['id']}';
+          final List<String> deletedMessageIds = prefs.getStringList(chatKey) ?? [];
+          
+          final filteredMessages = fetchedMessages.where((msg) => !deletedMessageIds.contains(msg['id'].toString())).toList();
+
           setState(() {
-            _messages.clear();
-            _messages.addAll(fetchedMessages);
+            _messages = filteredMessages;
             _isLoading = false;
           });
         }
@@ -349,12 +363,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
   void _sendMessage() {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
-    
     final tempId = DateTime.now().microsecondsSinceEpoch.toString();
-    
     final messageData = {
       'id': tempId,
-      'senderId': widget.user.id.toString(),
+      'senderId': _user.id.toString(),
       'receiverId': widget.targetUser['id'].toString(),
       'content': text,
       'readStatus': false, 
@@ -363,27 +375,22 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
       'replyToMessageId': _replyingToMessage != null ? _replyingToMessage['id'] : null,
       'replyToMessageContent': _replyingToMessage != null ? _replyingToMessage['content'] : null,
     };
-
     setState(() {
       _messages.add(messageData);
       _replyingToMessage = null;
     });
-    
     _textController.clear();
-    
     Future.delayed(const Duration(milliseconds: 50), () {
       _scrollToBottom();
     });
-    
     _socketService.emitEvent('sendMessage', {
-      'senderId': widget.user.id,
+      'senderId': _user.id,
       'receiverId': widget.targetUser['id'],
       'content': text,
       'tempId': tempId,
       'replyToMessageId': messageData['replyToMessageId'],
       'replyToMessageContent': messageData['replyToMessageContent'],
     });
-    
     _stopTyping();
   }
 
@@ -397,10 +404,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     }
   }
 
-  void _deleteMessageForMe(dynamic message) {
+  Future<void> _deleteMessageForMe(dynamic message) async {
     if (_isIOS) {
       HapticFeedback.mediumImpact();
     }
+    
+    final prefs = await SharedPreferences.getInstance();
+    final String chatKey = 'deleted_messages_${_user.id}_${widget.targetUser['id']}';
+    final List<String> currentDeleted = prefs.getStringList(chatKey) ?? [];
+    currentDeleted.add(message['id'].toString());
+    await prefs.setStringList(chatKey, currentDeleted);
+
     setState(() {
       _messages.removeWhere((msg) => msg['id'].toString() == message['id'].toString());
     });
@@ -412,42 +426,69 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     }
     _socketService.emitEvent('deleteMessage', {
       'messageId': message['id'].toString(),
-      'senderId': widget.user.id,
+      'senderId': _user.id,
       'receiverId': widget.targetUser['id'],
     });
   }
 
+  // ✅ Updated _editMessage function
   void _editMessage(dynamic message) {
-    showCupertinoDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return EditMessageDialog(
-          initialContent: message['content'],
-          onSave: (newContent) {
-            _socketService.emitEvent('editMessage', {
-              'messageId': message['id'].toString(),
-              'senderId': widget.user.id,
-              'newContent': newContent,
-              'receiverId': widget.targetUser['id'],
-            });
-          },
-        );
-      },
-    );
+    if (_isIOS) {
+      _showNativeEditMessageDialog(message);
+    } else {
+      showCupertinoDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return EditMessageDialog(
+            initialContent: message['content'],
+            onSave: (newContent) {
+              _socketService.emitEvent('editMessage', {
+                'messageId': message['id'].toString(),
+                'senderId': _user.id,
+                'newContent': newContent,
+                'receiverId': widget.targetUser['id'],
+              });
+            },
+          );
+        },
+      );
+    }
+  }
+
+  // ✅ New method to show the native edit dialog
+  Future<void> _showNativeEditMessageDialog(dynamic message) async {
+    try {
+      final newContent = await platform.invokeMethod('showEditMessageDialog', {
+        'initialContent': message['content'],
+      });
+
+      if (newContent != null) {
+        _socketService.emitEvent('editMessage', {
+          'messageId': message['id'].toString(),
+          'senderId': _user.id,
+          'newContent': newContent,
+          'receiverId': widget.targetUser['id'],
+        });
+      }
+    } on PlatformException catch (e) {
+      print("Failed to show native edit dialog: '${e.message}'.");
+      // Optionally, you can fall back to the Flutter dialog if the native one fails
+      _editMessage(message); 
+    }
   }
 
   void _onTyping(String text) {
     if (!_isTyping && text.trim().isNotEmpty) {
       _isTyping = true;
       _socketService.emitEvent('typing', {
-        'senderId': widget.user.id,
+        'senderId': _user.id,
         'receiverId': widget.targetUser['id'],
         'isTyping': true,
       });
     } else if (_isTyping && text.trim().isEmpty) {
       _isTyping = false;
       _socketService.emitEvent('typing', {
-        'senderId': widget.user.id,
+        'senderId': _user.id,
         'receiverId': widget.targetUser['id'],
         'isTyping': false,
       });
@@ -458,7 +499,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     if (_isTyping) {
       _isTyping = false;
       _socketService.emitEvent('typing', {
-        'senderId': widget.user.id,
+        'senderId': _user.id,
         'receiverId': widget.targetUser['id'],
         'isTyping': false,
       });
@@ -470,13 +511,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     _socketService.emitEvent('readMessage', {
       'messageId': messageId,
       'senderId': widget.targetUser['id'],
-      'receiverId': widget.user.id
+      'receiverId': _user.id
     });
   }
 
   void _markAllMessagesAsRead() {
     if (_messages.isEmpty) return;
-    
     for (var message in _messages) {
       if (message['senderId'].toString() == widget.targetUser['id'].toString() &&
           (message['readStatus'] == false || message['readStatus'] == null || message['readStatus'] == 0)) {
@@ -487,48 +527,209 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
 
   void _scrollToBottom() {
     if (!_scrollController.hasClients) return;
-    
-    // ✅ استخدام WidgetsBinding.instance.addPostFrameCallback لضمان أن الواجهة قد تم تحديثها
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients && mounted) {
-        // ✅ الانتقال الفوري إلى نهاية القائمة
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
   }
 
-  Widget _buildRefreshIndicator() {
-    if (!_isRefreshing) return const SizedBox.shrink();
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Center(
-        child: _isIOS 
-          ? const CupertinoActivityIndicator(radius: 15)
-          : Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(50),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withOpacity(0.2),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-                ],
+  void _onMessageLongPress(dynamic message) {
+    if (_isIOS) {
+      _showNativeActionSheet(message);
+    } else {
+      showCupertinoModalPopup(
+        context: context,
+        builder: (BuildContext context) {
+          final isMyMessage = message['senderId'].toString() == _user.id.toString();
+          return CupertinoActionSheet(
+            title: Text('خيارات الرسالة', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
+            actions: <CupertinoActionSheetAction>[
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _isSelectionMode = true;
+                    _toggleMessageSelection(message);
+                  });
+                },
+                child: Text('تحديد', style: GoogleFonts.almarai(color: CupertinoColors.activeBlue)),
               ),
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _replyToMessage(message);
+                },
+                child: Text('رد', style: GoogleFonts.almarai(color: CupertinoColors.activeBlue)),
+              ),
+              if (isMyMessage)
+                CupertinoActionSheetAction(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _editMessage(message);
+                  },
+                  child: Text('تعديل', style: GoogleFonts.almarai(color: CupertinoColors.activeBlue)),
                 ),
+              if (isMyMessage)
+                CupertinoActionSheetAction(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _deleteMessageForEveryone(message);
+                  },
+                  child: Text('حذف لدى الجميع', style: GoogleFonts.almarai(color: CupertinoColors.systemRed)),
+                ),
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteMessageForMe(message);
+                },
+                child: Text('حذف لدي', style: GoogleFonts.almarai(color: CupertinoColors.systemRed)),
+              ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context),
+              child: Text('إلغاء', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  // ✅ New method to show the native iOS action sheet
+  Future<void> _showNativeActionSheet(dynamic message) async {
+    HapticFeedback.lightImpact();
+    final isMyMessage = message['senderId'].toString() == _user.id.toString();
+
+    final List<Map<String, String>> actions = [
+      {'title': 'تحديد', 'action': 'select'},
+      {'title': 'رد', 'action': 'reply'},
+      if (isMyMessage) ...[
+        {'title': 'تعديل', 'action': 'edit'},
+        {'title': 'حذف لدى الجميع', 'action': 'delete_for_everyone'},
+      ],
+      {'title': 'حذف لدي', 'action': 'delete_for_me'},
+    ];
+
+    try {
+      final String? selectedAction = await platform.invokeMethod('showActionSheet', {
+        'title': 'خيارات الرسالة',
+        'actions': actions,
+      });
+
+      switch (selectedAction) {
+        case 'select':
+          setState(() {
+            _isSelectionMode = true;
+            _toggleMessageSelection(message);
+          });
+          break;
+        case 'reply':
+          _replyToMessage(message);
+          break;
+        case 'edit':
+          _editMessage(message);
+          break;
+        case 'delete_for_everyone':
+          _deleteMessageForEveryone(message);
+          break;
+        case 'delete_for_me':
+          _deleteMessageForMe(message);
+          break;
+        default:
+          // User canceled or no action was selected
+          break;
+      }
+    } on PlatformException catch (e) {
+      print("Failed to show native action sheet: '${e.message}'.");
+    }
+  }
+
+  void _toggleMessageSelection(dynamic message) {
+    setState(() {
+      final messageId = message['id'].toString();
+      if (_selectedMessageIds.contains(messageId)) {
+        _selectedMessageIds.remove(messageId);
+      } else {
+        _selectedMessageIds.add(messageId);
+      }
+      if (_selectedMessageIds.isEmpty) {
+        _isSelectionMode = false;
+      }
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedMessageIds.clear();
+    });
+  }
+
+  void _showBulkDeleteDialog() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return CupertinoActionSheet(
+          title: Text(
+            'حذف الرسائل المحددة',
+            style: GoogleFonts.almarai(fontWeight: FontWeight.bold),
+          ),
+          actions: <CupertinoActionSheetAction>[
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteSelectedMessages(isDeleteForEveryone: false);
+              },
+              child: Text(
+                'حذف لدي',
+                style: GoogleFonts.almarai(color: CupertinoColors.systemRed),
               ),
             ),
-      ),
+            if (_selectedMessageIds.isNotEmpty && _selectedMessageIds.every((id) => _messages.firstWhere((msg) => msg['id'].toString() == id, orElse: () => null)?['senderId']?.toString() == _user.id.toString()))
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteSelectedMessages(isDeleteForEveryone: true);
+                },
+                child: Text(
+                  'حذف لدى الجميع',
+                  style: GoogleFonts.almarai(color: CupertinoColors.systemRed),
+                ),
+              ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'إلغاء',
+              style: GoogleFonts.almarai(fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
+      },
     );
+  }
+
+  Future<void> _deleteSelectedMessages({required bool isDeleteForEveryone}) async {
+    final messageIdsToDelete = _selectedMessageIds.toList();
+    if (isDeleteForEveryone) {
+      _socketService.emitEvent('bulkDeleteMessages', {
+        'messageIds': messageIdsToDelete,
+        'senderId': _user.id,
+        'receiverId': widget.targetUser['id'],
+      });
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      final String chatKey = 'deleted_messages_${_user.id}_${widget.targetUser['id']}';
+      List<String> currentDeleted = prefs.getStringList(chatKey) ?? [];
+      currentDeleted.addAll(messageIdsToDelete);
+      await prefs.setStringList(chatKey, currentDeleted);
+
+      setState(() {
+        _messages.removeWhere((msg) => messageIdsToDelete.contains(msg['id'].toString()));
+      });
+    }
+    _exitSelectionMode();
   }
 
   @override
@@ -539,440 +740,76 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     _socketService.userStatus.removeListener(_onUserStatusChange);
     _socketService.typingStatus.removeListener(_onTypingStatusChange);
     _scrollController.removeListener(_onScroll);
-    _focusNode.removeListener(_onFocusChange); // ✅ إزالة listener
+    _focusNode.removeListener(_onFocusChange);
     _textController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
-    
-    for (var controller in _statusAnimationControllers.values) {
-      controller.dispose();
-    }
-    _statusAnimationControllers.clear();
-    _statusAnimations.clear();
-    
     super.dispose();
   }
 
-@override
-Widget build(BuildContext context) {
-  return Directionality(
-    textDirection: TextDirection.rtl,
-    child: TextSelectionTheme(
-      data: TextSelectionThemeData(
-        selectionColor: Colors.blue.shade100,
-        selectionHandleColor: Colors.blue.shade800,
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        extendBodyBehindAppBar: true,
-        
-        // ✅ هذا هو الحل. body يحتوي على المحتوى فقط، و bottomNavigationBar يحتوي على صندوق الكتابة
-        body: GestureDetector(
-          onTap: () {
-            FocusScope.of(context).unfocus();
-            _markAllMessagesAsRead();
-          },
-          child: Center(
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: TextSelectionTheme(
+        data: TextSelectionThemeData(
+          selectionColor: Colors.blue.shade100,
+          selectionHandleColor: Colors.blue.shade800,
+        ),
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: _isLoading
-                        ? Center(
-                            child: _isIOS 
-                              ? const CupertinoActivityIndicator(radius: 20)
-                              : const CircularProgressIndicator(color: Color(0xFF2C3E50))
-                          )
-                        : NotificationListener<ScrollNotification>(
-                            onNotification: (ScrollNotification scrollInfo) {
-                              if (scrollInfo is ScrollEndNotification) {
-                                Future.delayed(const Duration(milliseconds: 200), () {
-                                  _markAllMessagesAsRead();
-                                });
-                              }
-                              return false;
-                            },
-                            child: CustomScrollView(
-                              controller: _scrollController,
-                              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                              physics: _isIOS 
-                                ? const BouncingScrollPhysics()
-                                : const ClampingScrollPhysics(),
-                              slivers: [
-                                SliverAppBar(
-                                  expandedHeight: 140, 
-                                  collapsedHeight: 100, 
-                                  floating: true,
-                                  pinned: true,
-                                  backgroundColor: Colors.transparent,
-                                  elevation: 0,
-                                  toolbarHeight: 100, 
-                                  leading: Padding(
-                                    padding: const EdgeInsets.only(top: 20), 
-                                    child: GestureDetector(
-                                      onTap: () => Navigator.of(context).pop(),
-                                      child: const Icon(Icons.arrow_back_ios_new, color: Colors.black87), 
-                                    ),
-                                  ),
-                                  title: Container(), 
-                                  flexibleSpace: InkWell(
-                                    onTap: () {},
-                                    splashColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    child: ClipRRect( 
-                                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
-                                      child: LayoutBuilder(
-                                        builder: (BuildContext context, BoxConstraints constraints) {
-                                          final double expandedHeight = constraints.biggest.height;
-                                          final double collapsedHeight = 100.0;
-                                          final double maxExpandedHeight = 140.0;
-                                          
-                                          final double t = ((expandedHeight - collapsedHeight) / (maxExpandedHeight - collapsedHeight)).clamp(0.0, 1.0);
-                                          
-                                          final double avatarSize = 40.0 + (5 * t); 
-                                          final double nameFontSize = 12.0 + (3 * t); 
-                                          final double statusFontSize = 10.0 + (2 * t);
-                                          
-                                          final Color appBarColor = Color.lerp(
-                                            Colors.transparent, 
-                                            Colors.white.withOpacity(0.8), 
-                                            t
-                                          )!;
-
-                                          return BackdropFilter(
-                                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), 
-                                            child: Container(
-                                              color: appBarColor, 
-                                              child: Align(
-                                                alignment: Alignment.bottomCenter,
-                                                child: Padding(
-                                                  padding: const EdgeInsets.only(bottom: 10),
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.end,
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      SizedBox(
-                                                        width: avatarSize,
-                                                        height: avatarSize,
-                                                        child: _buildUserAvatar(widget.targetUser['fullName'], _isOnline, avatarSize),
-                                                      ),
-                                                      SizedBox(height: 2 + (2 * t)),
-                                                      
-                                                      Flexible(
-                                                        child: Text(
-                                                          widget.targetUser['fullName'],
-                                                          style: GoogleFonts.almarai(
-                                                            fontWeight: FontWeight.bold,
-                                                            fontSize: nameFontSize,
-                                                            color: Colors.black87,
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                      
-                                                      Flexible(
-                                                        child: Text(
-                                                          _isTargetUserTyping
-                                                              ? 'يكتب...'
-                                                              : _isOnline
-                                                                  ? 'متصل الآن'
-                                                                  : 'غير متصل',
-                                                          style: GoogleFonts.almarai(
-                                                            fontSize: statusFontSize,
-                                                            color: _isTargetUserTyping
-                                                                ? Colors.blue.shade400
-                                                                : (_isOnline ? Colors.green.shade400 : Colors.red.shade400),
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                
-                                SliverToBoxAdapter(
-                                  child: _buildRefreshIndicator(),
-                                ),
-                                
-                                SliverList(
-                                  delegate: SliverChildBuilderDelegate(
-                                    (BuildContext context, int index) {
-                                      final message = _messages[index];
-                                      final isMyMessage = message['senderId'].toString() == widget.user.id.toString();
-                                      
-                                      // ✅ إضافة مفتاح فريد لكل رسالة
-                                      final GlobalKey messageKey = GlobalKey();
-                                      _messageKeys[message['id'].toString()] = messageKey;
-                                      
-                                      if (!isMyMessage && mounted) {
-                                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                                          if (message['readStatus'] == false || message['readStatus'] == null || message['readStatus'] == 0) {
-                                            _markMessageAsRead(message['id']);
-                                          }
-                                        });
-                                      }
-                                      
-                                      return MessageBubble(
-                                        key: messageKey,
-                                        message: message,
-                                        isMyMessage: isMyMessage,
-                                        onReply: (msg) {
-                                          _replyToMessage(msg);
-                                        },
-                                        onLongPress: (msg, myMsg) {
-                                          _showOptions(msg, myMsg);
-                                        },
-                                        repliedMessageContent: message['replyToMessageContent'],
-                                        isHighlighted: _highlightedMessageId ==  message['id'].toString(),
-                                      );
-                                    },
-                                    childCount: _messages.length,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // ✅ نقل صندوق الكتابة إلى bottomNavigationBar
-        bottomNavigationBar: _buildMessageInput(),
-      ),
-    ),
-  );
-}
-
-  Widget _buildUserAvatar(String fullName, bool isOnline, double size) {
-    final String initials = fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
-    final Color glowColor = isOnline ? Colors.green.shade400 : Colors.red.shade400;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
-      width: size, 
-      height: size, 
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.grey.shade200,
-        boxShadow: [
-          // ❌ الخطأ هنا
-          BoxShadow(
-            color: glowColor.withOpacity(isOnline ? 0.7 : 0.5),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          initials,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            fontSize: size * 0.4,
-            color: Colors.black87,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showOptions(dynamic message, bool isMyMessage) {
-    if (kIsWeb) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text('خيارات الرسالة', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
-            content: SingleChildScrollView(
-              child: ListBody(
-                children: <Widget>[
-                  if (isMyMessage)
-                    ListTile(
-                      title: Text('تعديل', style: GoogleFonts.almarai(color: Colors.blue)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _editMessage(message);
-                      },
+              child: _isLoading
+                  ? Center(
+                      child: _isIOS
+                          ? const CupertinoActivityIndicator(radius: 20)
+                          : const CircularProgressIndicator(color: Color(0xFF2C3E50)),
+                    )
+                  : ChatMessageList(
+                      targetUser: widget.targetUser,
+                      isOnline: _isOnline,
+                      isTargetUserTyping: _isTargetUserTyping,
+                      messages: _messages,
+                      user: _user,
+                      messageKeys: _messageKeys,
+                      highlightedMessageId: _highlightedMessageId,
+                      isSelectionMode: _isSelectionMode,
+                      selectedMessageIds: _selectedMessageIds,
+                      scrollController: _scrollController,
+                      isIOS: _isIOS,
+                      onMarkAllMessagesAsRead: _markAllMessagesAsRead,
+                      onReply: _onReply,
+                      onLongPress: _onLongPress,
+                      onMessageTap: _onMessageTap,
+                      showBulkDeleteDialog: _showBulkDeleteDialog,
+                      exitSelectionMode: _exitSelectionMode,
+                      isChatLoading: _isChatLoading,
+                      hasMoreMessages: _hasMoreMessages,
+                      onFetchMoreMessages: _fetchMoreMessages,
+                      onRefresh: _handleRefresh,
                     ),
-                  ListTile(
-                    title: Text('حذف لدي', style: GoogleFonts.almarai(color: Colors.red)),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _deleteMessageForMe(message);
-                    },
-                  ),
-                  if (isMyMessage)
-                    ListTile(
-                      title: Text('حذف لدى الجميع', style: GoogleFonts.almarai(color: Colors.red)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _deleteMessageForEveryone(message);
-                      },
-                    ),
-                ],
-              ),
             ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('إلغاء', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        },
-      );
-    } else {
-      if (!_isIOS) {
-        HapticFeedback.lightImpact();
-      }
-      showCupertinoModalPopup(
-        context: context,
-        builder: (BuildContext context) {
-          if (isMyMessage) {
-            return MessageOptionsSheet(
-              onEdit: () => _editMessage(message),
-              onDeleteForMe: () => _deleteMessageForMe(message),
-              onDeleteForEveryone: () => _deleteMessageForEveryone(message),
-            );
-          } else {
-            return CupertinoActionSheet(
-              title: Text('خيارات الرسالة', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
-              actions: <CupertinoActionSheetAction>[
-                CupertinoActionSheetAction(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _deleteMessageForMe(message);
-                  },
-                  child: Text('حذف لدي', style: GoogleFonts.almarai(color: CupertinoColors.systemRed)),
-                ),
-              ],
-              cancelButton: CupertinoActionSheetAction(
-                onPressed: () => Navigator.pop(context),
-                child: Text('إلغاء', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
-              ),
-            );
-          }
-        },
-      );
-    }
-  }
-
-  Widget _buildMessageInput() {
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 10,
-        left: 12,
-        right: 12,
-        top: 10,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_replyingToMessage != null)
-            GestureDetector(
-              onTap: () => _scrollToAndHighlight(_replyingToMessage['replyToMessageId'].toString()),
-              child: _buildReplyPreview(),
-            ),
-          
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  cursorColor: Colors.blue.shade600,
-                  controller: _textController,
+          ),
+          bottomNavigationBar: _isSelectionMode
+              ? null
+              : ChatMessageInput(
+                  textController: _textController,
                   focusNode: _focusNode,
-                  onChanged: _onTyping,
-                  keyboardType: TextInputType.multiline,
-                  maxLines: null,
-                  style: GoogleFonts.almarai(),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    hintText: 'اكتب رسالتك...',
-                    hintStyle: GoogleFonts.almarai(color: Colors.grey),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
+                  replyingToMessage: _replyingToMessage,
+                  user: _user,
+                  targetUser: widget.targetUser,
+                  onSendMessage: _sendMessage,
+                  onTyping: _onTyping,
+                  onReplyPreviewTap: () => _scrollToAndHighlight(_replyingToMessage['id'].toString()),
+                  onCancelReply: () {
+                    setState(() {
+                      _replyingToMessage = null;
+                    });
+                  },
                 ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _sendMessage,
-                child: Container(
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade600,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.send_rounded, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildReplyPreview() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade100.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _replyingToMessage['senderId'].toString() == widget.user.id.toString() ? 'أنت' : widget.targetUser['fullName'],
-                  style: GoogleFonts.almarai(fontWeight: FontWeight.bold, color: Colors.blue.shade800),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _replyingToMessage['content'],
-                  style: GoogleFonts.almarai(color: Colors.black87),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.grey),
-            onPressed: () {
-              setState(() {
-                _replyingToMessage = null;
-              });
-            },
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -1,4 +1,4 @@
-// lib/widgets/message_bubble.dart - النسخة النهائية المصححة
+// lib/widgets/message_bubble.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -11,9 +11,10 @@ class MessageBubble extends StatelessWidget {
   final dynamic message;
   final bool isMyMessage;
   final Function(dynamic) onReply;
-  final Function(dynamic, bool) onLongPress;
+  final Function(dynamic) onLongPress;
   final dynamic repliedMessageContent;
   final bool isHighlighted;
+  final bool isSelected;
 
   const MessageBubble({
     super.key,
@@ -23,9 +24,8 @@ class MessageBubble extends StatelessWidget {
     required this.onLongPress,
     this.repliedMessageContent,
     required this.isHighlighted,
+    this.isSelected = false,
   });
-
-  
 
   Widget _buildMessageStatusIcon(dynamic msg) {
     final bool readStatus = (msg['readStatus'] == true || msg['readStatus'] == 1);
@@ -86,10 +86,13 @@ class MessageBubble extends StatelessWidget {
       bottomRight: isMyMessage ? const Radius.circular(5) : const Radius.circular(20),
     );
 
-    // ✅ التعديل هنا لضمان أن اتجاه السحب للرد يكون دائمًا نحو وسط الشاشة
     final DismissDirection swipeDirection = isMyMessage 
         ? DismissDirection.startToEnd 
         : DismissDirection.endToStart; 
+
+    final Color backgroundColor = isSelected
+        ? (isMyMessage ? const Color(0xFF2C3E50).withOpacity(0.5) : Colors.grey.shade400)
+        : (isMyMessage ? const Color(0xFF2C3E50).withOpacity(0.9) : Colors.grey.shade200);
 
     return Dismissible(
       key: ValueKey(message['id'].toString()),
@@ -112,27 +115,27 @@ class MessageBubble extends StatelessWidget {
       ),
       child: Align(
         alignment: isMyMessage ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onLongPress: () => onLongPress(message, isMyMessage),
-        child: AnimatedContainer( // ✅ تغيير Container إلى AnimatedContainer
-          duration: const Duration(milliseconds: 300), // ✅ مدة الانتقال
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.50),
-          decoration: BoxDecoration(
-            color: isHighlighted // ✅ استخدام isHighlighted لتغيير اللون
-                ? Colors.blue.withOpacity(0.3)
-                : (isMyMessage ? const Color(0xFF2C3E50).withOpacity(0.9) : Colors.grey.shade200),
-            borderRadius: borderRadius,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isHighlighted ? 0.3 : 0.05),
-                spreadRadius: isHighlighted ? 2 : 1,
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
+        child: GestureDetector(
+          onLongPress: () => onLongPress(message),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.50),
+            decoration: BoxDecoration(
+              color: isHighlighted 
+                  ? Colors.blue.withOpacity(0.3)
+                  : backgroundColor,
+              borderRadius: borderRadius,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isHighlighted || isSelected ? 0.3 : 0.05),
+                  spreadRadius: isHighlighted || isSelected ? 2 : 1,
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,

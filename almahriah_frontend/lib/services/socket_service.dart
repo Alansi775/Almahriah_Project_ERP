@@ -1,4 +1,4 @@
-// lib/services/socket_service.dart - النسخة النهائية والكاملة
+// lib/services/socket_service.dart
 
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -14,7 +14,6 @@ class SocketService {
   IO.Socket? _socket;
   bool _isInitialized = false;
 
-  // Getter للسوكت
   IO.Socket get socket => _socket!;
 
   final ValueNotifier<bool> isConnected = ValueNotifier<bool>(false);
@@ -62,7 +61,6 @@ class SocketService {
         isConnected.value = false;
       });
 
-      // تحديث حالة المستخدمين
       _socket!.on('user-status-changed', (data) {
         if (data is Map) {
           final String userId = data['userId'].toString();
@@ -72,11 +70,9 @@ class SocketService {
         }
       });
       
-      // استقبال الرسائل الجديدة مع دعم الرد
       _socket!.on('receiveMessage', (data) {
         print('Received message: $data');
         if (data is Map) {
-          // تحويل البيانات لضمان التنسيق الصحيح
           final messageData = {
             'id': data['id'].toString(),
             'senderId': data['senderId'].toString(),
@@ -86,13 +82,12 @@ class SocketService {
             'deliveredStatus': data['deliveredStatus'] == true || data['deliveredStatus'] == 1,
             'createdAt': data['createdAt'],
             'replyToMessageId': data['replyToMessageId'],
-            'replyToMessageContent': data['replyToMessageContent'], // محتوى الرسالة المردود عليها
+            'replyToMessageContent': data['replyToMessageContent'],
           };
           _messagesController.sink.add(messageData);
         }
       });
       
-      // حالة الكتابة
       _socket!.on('typing', (data) {
         if (data is Map) {
           final senderId = data['senderId'].toString();
@@ -102,7 +97,6 @@ class SocketService {
         }
       });
 
-      // تحديثات حالة الرسائل
       _socket!.on('messageStatusUpdate', (data) {
         if (data is Map) {
           print('Message status update: $data');
@@ -114,7 +108,6 @@ class SocketService {
         }
       });
 
-      // حذف الرسائل
       _socket!.on('messageDeleted', (data) {
         if (data is Map) {
           print('Message deleted: ${data['messageId']}');
@@ -125,7 +118,16 @@ class SocketService {
         }
       });
 
-      // تعديل الرسائل
+      _socket!.on('bulkDeleteMessages', (data) {
+        if (data is Map) {
+          final List<String> deletedMessageIds = List<String>.from(data['messageIds']);
+          _messageStatusController.sink.add({
+            'action': 'bulkDeleted',
+            'messageIds': deletedMessageIds
+          });
+        }
+      });
+
       _socket!.on('messageEdited', (data) {
         if (data is Map) {
           print('Message edited: ${data['id']}');
@@ -137,7 +139,6 @@ class SocketService {
         }
       });
 
-      // معالجة الأخطاء
       _socket!.on('messageError', (data) {
         print('Message error: $data');
       });
@@ -164,7 +165,6 @@ class SocketService {
     }
   }
 
-  // إرسال رسالة مع دعم الرد
   void sendMessage({
     required String senderId,
     required String receiverId,
@@ -179,14 +179,13 @@ class SocketService {
       'content': content,
       'tempId': tempId,
       'replyToMessageId': replyToMessageId,
-      'replyToMessageContent': replyToMessageContent, // محتوى الرسالة المردود عليها
+      'replyToMessageContent': replyToMessageContent,
       'createdAt': DateTime.now().toIso8601String(),
     };
     
     emitEvent('sendMessage', messageData);
   }
 
-  // قراءة الرسالة
   void markMessageAsRead(String messageId, String senderId, String receiverId) {
     emitEvent('readMessage', {
       'messageId': messageId,
@@ -195,7 +194,6 @@ class SocketService {
     });
   }
 
-  // الكتابة
   void emitTyping(String senderId, String receiverId, bool isTyping) {
     emitEvent('typing', {
       'senderId': senderId,
@@ -204,7 +202,6 @@ class SocketService {
     });
   }
 
-  // حذف رسالة
   void deleteMessage(String messageId, String senderId, String receiverId) {
     emitEvent('deleteMessage', {
       'messageId': messageId,
@@ -213,7 +210,6 @@ class SocketService {
     });
   }
 
-  // تعديل رسالة
   void editMessage(String messageId, String senderId, String receiverId, String newContent) {
     emitEvent('editMessage', {
       'messageId': messageId,
