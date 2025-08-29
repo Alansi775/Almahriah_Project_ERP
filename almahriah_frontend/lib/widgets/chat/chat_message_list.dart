@@ -8,8 +8,6 @@ import 'package:almahriah_frontend/widgets/message_bubble.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-import 'package:almahriah_frontend/widgets/chat/chat_app_bar.dart';
-
 class ChatMessageList extends StatelessWidget {
   final ScrollController scrollController;
   final bool isIOS;
@@ -22,11 +20,6 @@ class ChatMessageList extends StatelessWidget {
   final String? highlightedMessageId;
   final Set<String> selectedMessageIds;
   final bool isSelectionMode;
-  final dynamic targetUser;
-  final bool isOnline;
-  final bool isTargetUserTyping;
-  final Function() showBulkDeleteDialog;
-  final Function() exitSelectionMode;
   final Function(dynamic message) onMessageTap;
   final bool isChatLoading;
   final bool hasMoreMessages;
@@ -46,11 +39,6 @@ class ChatMessageList extends StatelessWidget {
     this.highlightedMessageId,
     required this.selectedMessageIds,
     required this.isSelectionMode,
-    required this.targetUser,
-    required this.isOnline,
-    required this.isTargetUserTyping,
-    required this.showBulkDeleteDialog,
-    required this.exitSelectionMode,
     required this.onMessageTap,
     required this.isChatLoading,
     required this.hasMoreMessages,
@@ -74,7 +62,6 @@ class ChatMessageList extends StatelessWidget {
             ? const BouncingScrollPhysics()
             : const ClampingScrollPhysics(),
         slivers: [
-          _buildChatAppBar(context),
           CupertinoSliverRefreshControl(
             onRefresh: onRefresh,
           ),
@@ -112,63 +99,5 @@ class ChatMessageList extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Widget _buildChatAppBar(BuildContext context) {
-    if (isSelectionMode) {
-      return SliverAppBar(
-        expandedHeight: 140,
-        collapsedHeight: 100,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
-        title: Text(
-          '${selectedMessageIds.length} رسالة محددة',
-          style: GoogleFonts.almarai(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: showBulkDeleteDialog,
-          ),
-        ],
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: exitSelectionMode,
-        ),
-        floating: true,
-        snap: true,
-        pinned: true,
-      );
-    } else {
-      return SliverAppBar(
-        expandedHeight: 140,
-        collapsedHeight: 100,
-        floating: true,
-        pinned: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        toolbarHeight: 100,
-        leading: Padding(
-          padding: const EdgeInsets.only(top: 20),
-          child: GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
-          ),
-        ),
-        title: Container(),
-        flexibleSpace: ClipRRect(
-          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
-          child: ChatAppBar(
-            targetUser: targetUser,
-            isOnline: isOnline,
-            isTargetUserTyping: isTargetUserTyping,
-          ),
-        ),
-      );
-    }
   }
 }

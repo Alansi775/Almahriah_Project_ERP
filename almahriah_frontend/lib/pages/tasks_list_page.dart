@@ -45,7 +45,7 @@ class _TasksListPageState extends State<TasksListPage> {
     });
 
     try {
-      String url = 'http://192.168.3.87:5050/api/tasks/department';
+      String url = 'http://192.168.1.67:5050/api/tasks/department';
       if (widget.statusFilter != null) {
         url += '?status=${widget.statusFilter}';
       }

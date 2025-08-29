@@ -34,7 +34,7 @@ import UIKit
       } else if call.method == "showActionSheet" {
           let actions = args["actions"] as? [[String: String]] ?? []
           self?.showNativeActionSheet(title: title, actions: actions, result: result)
-      } else if call.method == "showEditMessageDialog" { // ✅ New method handler
+      } else if call.method == "showEditMessageDialog" {
           self?.showNativeEditMessageDialog(title: "تعديل الرسالة", args: args, result: result)
       } else {
         result(FlutterMethodNotImplemented)
@@ -44,13 +44,20 @@ import UIKit
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // ✅ New method to show a native iOS action sheet
   private func showNativeActionSheet(title: String, actions: [[String: String]], result: @escaping FlutterResult) {
       let alertController = UIAlertController(title: title, message: nil, preferredStyle: .actionSheet)
 
       for actionData in actions {
           if let actionTitle = actionData["title"], let actionId = actionData["action"] {
-              let actionStyle: UIAlertAction.Style = (actionId.contains("delete")) ? .destructive : .default
+              let actionStyle: UIAlertAction.Style
+              if actionId.contains("delete") {
+                  actionStyle = .destructive
+              } else if actionId.contains("cancel") { // ✅ Check for cancel action
+                  actionStyle = .cancel
+              } else {
+                  actionStyle = .default
+              }
+              
               let action = UIAlertAction(title: actionTitle, style: actionStyle) { _ in
                   result(actionId)
               }
@@ -63,12 +70,11 @@ import UIKit
       })
 
       if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-         let rootViewController = scene.windows.first?.rootViewController {
+          let rootViewController = scene.windows.first?.rootViewController {
           rootViewController.present(alertController, animated: true, completion: nil)
       }
   }
 
-  // ✅ New method to show a native iOS edit message dialog
   private func showNativeEditMessageDialog(title: String, args: [String: Any], result: @escaping FlutterResult) {
       let alertController = UIAlertController(title: title, message: nil, preferredStyle: .alert)
       let initialContent = args["initialContent"] as? String ?? ""
@@ -91,12 +97,11 @@ import UIKit
       }))
 
       if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-         let rootViewController = scene.windows.first?.rootViewController {
+          let rootViewController = scene.windows.first?.rootViewController {
           rootViewController.present(alertController, animated: true, completion: nil)
       }
   }
 
-  // ✅ Existing method for confirmation alerts
   private func showConfirmationAlert(title: String, message: String, result: @escaping FlutterResult) {
     let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
     
@@ -114,7 +119,6 @@ import UIKit
     }
   }
 
-  // ✅ Existing method to show a native iOS alert
   private func showNativeAlert(title: String, message: String) {
     let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
     alertController.addAction(UIAlertAction(title: "موافق", style: .default, handler: nil))
@@ -125,7 +129,6 @@ import UIKit
     }
   }
     
-  // ✅ Existing method to show a native iOS toast-like message
   private func showSuccessToast(message: String) {
     if let window = UIApplication.shared.windows.first {
       let toastLabel = UILabel(frame: CGRect(x: 20, y: window.frame.size.height - 100, width: window.frame.size.width - 40, height: 50))

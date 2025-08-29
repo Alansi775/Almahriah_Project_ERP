@@ -13,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   // ✅ عنوان الخادم الموحد
-  static const String baseUrl = 'http://192.168.3.87:5050';
+  static const String baseUrl = 'http://192.168.1.67:5050';
 
   // دالة لتسجيل الدخول بكلمة المرور واسم المستخدم
   static Future<User> login(String username, String password) async {

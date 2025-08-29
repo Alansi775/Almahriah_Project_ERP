@@ -1,4 +1,4 @@
-// lib/widgets/message_bubble.dart
+// lib/widgets/message_bubble.dart - إصلاح عرض الردود
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -12,7 +12,8 @@ class MessageBubble extends StatelessWidget {
   final bool isMyMessage;
   final Function(dynamic) onReply;
   final Function(dynamic) onLongPress;
-  final dynamic repliedMessageContent;
+  final String? repliedMessageContent;
+  final String? repliedMessageId;
   final bool isHighlighted;
   final bool isSelected;
 
@@ -23,6 +24,7 @@ class MessageBubble extends StatelessWidget {
     required this.onReply,
     required this.onLongPress,
     this.repliedMessageContent,
+    this.repliedMessageId,
     required this.isHighlighted,
     this.isSelected = false,
   });
@@ -51,28 +53,82 @@ class MessageBubble extends StatelessWidget {
     final updatedAt = msg['updatedAt'] != null ? DateTime.parse(msg['updatedAt']) : null;
     
     if (updatedAt != null) {
-      return '${_formatTime(updatedAt)} (Edited)';
+      return '${_formatTime(updatedAt)} (تم التعديل)';
     } else {
       return _formatTime(createdAt);
     }
   }
 
   Widget _buildReplyPreview() {
+    // التحقق من وجود الرد في الرسالة نفسها أولاً
+    final replyContent = message['replyToMessageContent'] ?? repliedMessageContent;
+    
+    if (replyContent == null || replyContent.toString().isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: isMyMessage ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        repliedMessageContent,
-        style: GoogleFonts.almarai(
-          color: isMyMessage ? Colors.white70 : Colors.black54,
-          fontSize: 12,
+        color: isMyMessage 
+            ? Colors.white.withOpacity(0.2) 
+            : Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          right: BorderSide(
+            color: isMyMessage ? Colors.white : const Color(0xFF2C3E50),
+            width: 4,
+          ),
         ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.reply,
+                size: 16,
+                color: isMyMessage ? Colors.white70 : Colors.grey.shade600,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'رد على:',
+                style: GoogleFonts.almarai(
+                  color: isMyMessage ? Colors.white70 : Colors.grey.shade600,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isMyMessage 
+                  ? Colors.white.withOpacity(0.1) 
+                  : Colors.grey.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              replyContent.toString(),
+              style: GoogleFonts.almarai(
+                color: isMyMessage 
+                    ? Colors.white.withOpacity(0.9) 
+                    : Colors.grey.shade800,
+                fontSize: 13,
+                height: 1.3,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -120,8 +176,8 @@ class MessageBubble extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.50),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
             decoration: BoxDecoration(
               color: isHighlighted 
                   ? Colors.blue.withOpacity(0.3)
@@ -140,20 +196,24 @@ class MessageBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (repliedMessageContent != null)
-                  _buildReplyPreview(),
+                // عرض الرسالة المردود عليها
+                _buildReplyPreview(),
                 
+                // محتوى الرسالة الأساسي
                 Text(
                   message['content'],
                   style: GoogleFonts.almarai(
                     color: isMyMessage ? Colors.white : Colors.black87,
                     fontSize: 15,
+                    height: 1.4,
                   ),
                 ),
+                
+                // الوقت وحالة التسليم
                 Align(
                   alignment: isMyMessage ? Alignment.bottomRight : Alignment.bottomLeft,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
+                    padding: const EdgeInsets.only(top: 8.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -161,7 +221,7 @@ class MessageBubble extends StatelessWidget {
                           _getDisplayTime(message),
                           style: GoogleFonts.almarai(
                             color: isMyMessage ? Colors.white70 : Colors.black54,
-                            fontSize: 10,
+                            fontSize: 11,
                           ),
                         ),
                         if (isMyMessage) ...[

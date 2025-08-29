@@ -28,7 +28,7 @@ class _LeaveHistoryPageState extends State<LeaveHistoryPage> {
 
   // دالة لجلب جميع طلبات الإجازة من الخادم
   Future<List<dynamic>> _fetchLeaveHistory() async {
-    final url = Uri.parse('http://192.168.3.87:5050/api/admin/leave-requests/all');
+    final url = Uri.parse('http://192.168.1.67:5050/api/admin/leave-requests/all');
     final response = await http.get(
       url,
       headers: {
@@ -72,7 +72,7 @@ class _LeaveHistoryPageState extends State<LeaveHistoryPage> {
       });
 
       try {
-        final url = Uri.parse('http://192.168.3.87:5050/api/admin/leave-requests/all');
+        final url = Uri.parse('http://192.168.1.67:5050/api/admin/leave-requests/all');
         final response = await http.delete(
           url,
           headers: {

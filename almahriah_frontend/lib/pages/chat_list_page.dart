@@ -1,4 +1,4 @@
-// page: almahriah_frontend/lib/pages/chat_list_page.dart
+// lib/pages/chat_list_page.dart - النسخة المُحسنة والمُصححة
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -21,7 +21,7 @@ class ChatListPage extends StatefulWidget {
   State<ChatListPage> createState() => _ChatListPageState();
 }
 
-class _ChatListPageState extends State<ChatListPage> {
+class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver {
   List<dynamic> users = [];
   bool isLoading = true;
   final ScrollController _scrollController = ScrollController();
@@ -30,17 +30,18 @@ class _ChatListPageState extends State<ChatListPage> {
   final SocketService _socketService = SocketService();
   
   bool _socketConnected = false;
+  
+  // StreamSubscription للرسائل الجديدة
+  StreamSubscription? _messageSubscription;
+  StreamSubscription? _statusSubscription;
 
   @override
   void initState() {
     super.initState();
-    _fetchUsers();
+    WidgetsBinding.instance.addObserver(this);
     
-    _socketConnected = _socketService.isConnected.value;
+    _initializeSocketAndFetchUsers();
     
-    _socketService.isConnected.addListener(_updateConnectionStatus);
-    _socketService.userStatus.addListener(_updateUsersStatus);
-
     _scrollController.addListener(() {
       if (mounted) {
         setState(() {
@@ -51,11 +52,109 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // تحديث البيانات عند العودة للتطبيق
+      _refreshData();
+    }
+  }
+
+  Future<void> _initializeSocketAndFetchUsers() async {
+    // تهيئة Socket
+    _socketService.initialize(widget.user);
+    
+    // انتظار قصير للاتصال
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    _socketConnected = _socketService.isConnected.value;
+    
+    // إضافة المستمعين
+    _socketService.isConnected.addListener(_updateConnectionStatus);
+    _socketService.userStatus.addListener(_updateUsersStatus);
+    _socketService.unreadCount.addListener(_updateUnreadCounts);
+    
+    // الاستماع للرسائل الجديدة
+    _messageSubscription = _socketService.messagesStream.listen((messageData) {
+      if (mounted) {
+        _handleNewMessage(messageData);
+      }
+    });
+    
+    // الاستماع لتحديثات الحالة
+    _statusSubscription = _socketService.messageStatusStream.listen((statusData) {
+      if (mounted && statusData is Map) {
+        if (statusData['action'] == 'read' || statusData['action'] == 'delivered') {
+          setState(() {});
+        }
+      }
+    });
+    
+    // جلب البيانات
+    await _fetchUsers();
+    await _fetchUnreadCounts();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
+    _messageSubscription?.cancel();
+    _statusSubscription?.cancel();
     _socketService.isConnected.removeListener(_updateConnectionStatus);
     _socketService.userStatus.removeListener(_updateUsersStatus);
+    _socketService.unreadCount.removeListener(_updateUnreadCounts);
     super.dispose();
+  }
+  
+  void _handleNewMessage(Map<String, dynamic> messageData) {
+    final senderId = messageData['senderId'].toString();
+    final currentUserId = widget.user.id.toString();
+    
+    // تأكد أن الرسالة ليست مني وتحديث الواجهة
+    if (senderId != currentUserId) {
+      debugPrint('📥 New message received from $senderId in chat list');
+      // العداد يتم تحديثه تلقائياً في SocketService
+      // نحتاج فقط لترتيب القائمة
+      _sortUsers();
+    }
+  }
+  
+  Future<void> _fetchUnreadCounts() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AuthService.baseUrl}/api/chat/unread-counts'),
+        headers: {'Authorization': 'Bearer ${widget.user.token}'},
+      );
+
+      if (response.statusCode == 200 && mounted) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final Map<String, int> unreadCounts = {};
+        
+        data.forEach((key, value) {
+          unreadCounts[key] = int.tryParse(value.toString()) ?? 0;
+        });
+        
+        _socketService.setUnreadCounts(unreadCounts);
+        debugPrint('✅ Fetched unread counts: $unreadCounts');
+      }
+    } catch (e) {
+      debugPrint('❌ Error fetching unread counts: $e');
+    }
+  }
+  
+  void _updateUnreadCounts() {
+    if (mounted) {
+      final updatedCounts = _socketService.unreadCount.value;
+      setState(() {
+        users = users.map((user) {
+          final userId = user['id'].toString();
+          user['unreadCount'] = updatedCounts[userId] ?? 0;
+          return user;
+        }).toList();
+        _sortUsers();
+      });
+    }
   }
 
   void _updateConnectionStatus() {
@@ -77,8 +176,38 @@ class _ChatListPageState extends State<ChatListPage> {
           }
           return user;
         }).toList();
+        _sortUsers();
       });
     }
+  }
+  
+  void _sortUsers() {
+    users.sort((a, b) {
+      final aUnreadCount = int.tryParse(a['unreadCount']?.toString() ?? '0') ?? 0;
+      final bUnreadCount = int.tryParse(b['unreadCount']?.toString() ?? '0') ?? 0;
+      
+      final aIsOnline = a['isLoggedIn'] == 1;
+      final bIsOnline = b['isLoggedIn'] == 1;
+      
+      // الأولوية للرسائل غير المقروءة أولاً
+      if (aUnreadCount > 0 && bUnreadCount == 0) {
+        return -1;
+      }
+      if (aUnreadCount == 0 && bUnreadCount > 0) {
+        return 1;
+      }
+      
+      // ثم الأولوية للمتصلين
+      if (aIsOnline && !bIsOnline) {
+        return -1;
+      }
+      if (!aIsOnline && bIsOnline) {
+        return 1;
+      }
+
+      // أخيراً ترتيب أبجدي
+      return a['fullName'].compareTo(b['fullName']);
+    });
   }
 
   Future<void> _fetchUsers() async {
@@ -105,11 +234,12 @@ class _ChatListPageState extends State<ChatListPage> {
           });
           
           _updateUsersStatus();
+          _updateUnreadCounts();
         }
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load users: ${json.decode(response.body)['message']}', style: GoogleFonts.almarai())),
+          SnackBar(content: Text('فشل في تحميل المستخدمين', style: GoogleFonts.almarai())),
         );
         if (mounted) {
           setState(() {
@@ -120,7 +250,7 @@ class _ChatListPageState extends State<ChatListPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('حدث خطأ في الاتصال بالخادم: $e', style: GoogleFonts.almarai())),
+        SnackBar(content: Text('خطأ في الاتصال بالخادم: $e', style: GoogleFonts.almarai())),
       );
       if (mounted) {
         setState(() {
@@ -130,12 +260,18 @@ class _ChatListPageState extends State<ChatListPage> {
     }
   }
 
+  Future<void> _refreshData() async {
+    await _fetchUsers();
+    await _fetchUnreadCounts();
+    _retryConnection();
+  }
+
   void _retryConnection() {
     if (!_socketService.isConnected.value) {
       _socketService.initialize(widget.user);
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -204,10 +340,7 @@ class _ChatListPageState extends State<ChatListPage> {
                             ),
                           )
                         : RefreshIndicator(
-                            onRefresh: () async {
-                              await _fetchUsers();
-                              _retryConnection();
-                            },
+                            onRefresh: _refreshData,
                             color: const Color(0xFF2C3E50),
                             child: Scrollbar(
                               controller: _scrollController,
@@ -231,8 +364,9 @@ class _ChatListPageState extends State<ChatListPage> {
                                       : '?';
                                   
                                   final bool isOnline = user['isLoggedIn'] == 1;
+                                  final int unreadCount = int.tryParse(user['unreadCount']?.toString() ?? '0') ?? 0;
 
-                                  return _buildUserTile(context, user, initials, isOnline);
+                                  return _buildUserTile(context, user, initials, isOnline, unreadCount);
                                 },
                               ),
                             ),
@@ -245,14 +379,17 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  Widget _buildUserTile(BuildContext context, dynamic user, String initials, bool isOnline) {
+  Widget _buildUserTile(BuildContext context, dynamic user, String initials, bool isOnline, int unreadCount) {
+    final isBold = unreadCount > 0;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: unreadCount > 0 ? Colors.blue.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: unreadCount > 0 ? Border.all(color: Colors.blue.shade200, width: 1) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: unreadCount > 0 ? Colors.blue.withOpacity(0.1) : Colors.black.withOpacity(0.05),
             spreadRadius: 2,
             blurRadius: 10,
             offset: const Offset(0, 4),
@@ -265,6 +402,9 @@ class _ChatListPageState extends State<ChatListPage> {
           color: Colors.transparent,
           child: InkWell(
             onTap: () async {
+              // تصفير العداد فوراً عند النقر
+              _socketService.clearUnreadCountForSender(user['id'].toString());
+              
               final result = await Navigator.push(
                 context,
                 CustomPageRoute(
@@ -275,15 +415,16 @@ class _ChatListPageState extends State<ChatListPage> {
                 ),
               );
               
+              // تحديث البيانات عند العودة
               if (result == true && mounted) {
-                _fetchUsers();
+                await _refreshData();
               }
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
               child: Row(
                 children: [
-                  _buildUserAvatar(initials, isOnline),
+                  _buildUserAvatar(initials, isOnline, unreadCount > 0),
                   const SizedBox(width: 20),
                   Expanded(
                     child: Column(
@@ -292,9 +433,9 @@ class _ChatListPageState extends State<ChatListPage> {
                         Text(
                           user['fullName'],
                           style: GoogleFonts.almarai(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.black87,
+                            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                            fontSize: isBold ? 17 : 16,
+                            color: isBold ? Colors.black : Colors.black87,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -314,13 +455,28 @@ class _ChatListPageState extends State<ChatListPage> {
                               style: GoogleFonts.almarai(
                                 color: isOnline ? Colors.green.shade400 : Colors.red.shade400,
                                 fontSize: 14,
+                                fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
                               ),
                             ),
+                            if (unreadCount > 0) ...[
+                              const SizedBox(width: 12),
+                              Text(
+                                'رسالة جديدة',
+                                style: GoogleFonts.almarai(
+                                  color: Colors.blue.shade600,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ],
                     ),
                   ),
+                  if (unreadCount > 0)
+                    _buildUnreadCountBadge(unreadCount),
                 ],
               ),
             ),
@@ -329,9 +485,38 @@ class _ChatListPageState extends State<ChatListPage> {
       ),
     );
   }
+  
+  Widget _buildUnreadCountBadge(int count) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.red.shade500,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.3),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        count > 99 ? '99+' : count.toString(),
+        style: GoogleFonts.poppins(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: count > 99 ? 10 : 12,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 
-  Widget _buildUserAvatar(String initials, bool isOnline) {
+  Widget _buildUserAvatar(String initials, bool isOnline, bool hasUnreadMessages) {
     final Color glowColor = isOnline ? Colors.green.shade400 : Colors.red.shade400;
+    final Color borderColor = hasUnreadMessages ? Colors.blue.shade400 : Colors.grey.shade300;
 
     return Container(
       width: 50,
@@ -339,6 +524,10 @@ class _ChatListPageState extends State<ChatListPage> {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.grey.shade200,
+        border: Border.all(
+          color: borderColor,
+          width: hasUnreadMessages ? 2 : 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: glowColor.withOpacity(isOnline ? 0.7 : 0.5),
@@ -346,6 +535,13 @@ class _ChatListPageState extends State<ChatListPage> {
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
+          if (hasUnreadMessages)
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.3),
+              spreadRadius: 1,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
         ],
       ),
       child: Center(
@@ -354,7 +550,7 @@ class _ChatListPageState extends State<ChatListPage> {
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             fontSize: 22,
-            color: Colors.black87,
+            color: hasUnreadMessages ? Colors.blue.shade700 : Colors.black87,
           ),
         ),
       ),

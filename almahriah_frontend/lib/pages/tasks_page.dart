@@ -129,7 +129,7 @@ class _TasksPageState extends State<TasksPage> {
 
   Future<List<dynamic>> _fetchDepartments() async {
     final response = await http.get(
-      Uri.parse('http://192.168.3.87:5050/api/admin/departments'),
+      Uri.parse('http://192.168.1.67:5050/api/admin/departments'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${widget.user.token}',
@@ -146,11 +146,11 @@ class _TasksPageState extends State<TasksPage> {
     String apiUrl;
     if (widget.user.role == 'Admin') {
       if (department == null) return [];
-      apiUrl = 'http://192.168.3.87:5050/api/tasks/by-department?department=$department';
+      apiUrl = 'http://192.168.1.67:5050/api/tasks/by-department?department=$department';
     } else if (widget.user.role == 'Manager') {
-      apiUrl = 'http://192.168.3.87:5050/api/tasks/by-department?department=${widget.user.department}';
+      apiUrl = 'http://192.168.1.67:5050/api/tasks/by-department?department=${widget.user.department}';
     } else {
-      apiUrl = 'http://192.168.3.87:5050/api/tasks/by-user';
+      apiUrl = 'http://192.168.1.67:5050/api/tasks/by-user';
     }
 
     final response = await http.get(
@@ -193,7 +193,7 @@ class _TasksPageState extends State<TasksPage> {
     }
 
     try {
-      final url = Uri.parse('http://192.168.3.87:5050/api/tasks/by-department?department=${widget.user.department}');
+      final url = Uri.parse('http://192.168.1.67:5050/api/tasks/by-department?department=${widget.user.department}');
       final response = await http.delete(
         url,
         headers: {
@@ -238,7 +238,7 @@ class _TasksPageState extends State<TasksPage> {
     }
 
     try {
-      final url = Uri.parse('http://192.168.3.87:5050/api/tasks/$taskId');
+      final url = Uri.parse('http://192.168.1.67:5050/api/tasks/$taskId');
       final response = await http.delete(
         url,
         headers: {

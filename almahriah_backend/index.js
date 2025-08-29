@@ -24,7 +24,7 @@ const authController = require('./controllers/authController');
 
 const app = express();
 const PORT = 5050;
-const HOST = '192.168.3.87';
+const HOST = '192.168.1.67';
 
 // ================== تهيئة خادم HTTP و Socket.IO ==================
 

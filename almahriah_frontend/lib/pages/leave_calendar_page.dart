@@ -76,7 +76,7 @@ class _LeaveCalendarPageState extends State<LeaveCalendarPage> {
 
     try {
       final url = Uri.parse(
-          'http://192.168.3.87:5050/api/admin/leave-requests/employee/${widget.user.id}');
+          'http://192.168.1.67:5050/api/admin/leave-requests/employee/${widget.user.id}');
       final response = await http.get(
         url,
         headers: {
@@ -214,7 +214,7 @@ Future<void> _deleteLeaveRequest(String id) async {
     });
     try {
       print('Attempting to delete request with ID: $id');
-      final url = Uri.parse('http://192.168.3.87:5050/api/employee/leave-requests/$id');
+      final url = Uri.parse('http://192.168.1.67:5050/api/employee/leave-requests/$id');
       final response = await http.delete(
         url,
         headers: {

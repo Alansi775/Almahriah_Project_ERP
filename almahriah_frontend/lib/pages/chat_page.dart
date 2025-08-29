@@ -1,4 +1,4 @@
-// lib/pages/chat_page.dart
+// lib/pages/chat_page.dart - النسخة المُحسنة والمُصححة
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -18,8 +18,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:almahriah_frontend/widgets/edit_message_dialog.dart';
 import 'package:almahriah_frontend/widgets/message_bubble.dart';
 import 'package:almahriah_frontend/widgets/chat/chat_app_bar.dart';
-import 'package:almahriah_frontend/widgets/chat/chat_message_list.dart';
 import 'package:almahriah_frontend/widgets/chat/chat_message_input.dart';
+import 'package:almahriah_frontend/widgets/message_options_sheet.dart';
 
 const platform = MethodChannel("com.almahriah.app/dialog");
 
@@ -35,9 +35,8 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, TickerProviderStateMixin {
   final TextEditingController _textController = TextEditingController();
-  List<dynamic> _messages = [];
+  final List<dynamic> _messages = [];
   final ScrollController _scrollController = ScrollController();
-  
   final SocketService _socketService = SocketService();
 
   Set<String> _selectedMessageIds = {};
@@ -59,11 +58,39 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
   final FocusNode _focusNode = FocusNode();
   
   bool get _isIOS => !kIsWeb && Platform.isIOS;
+  bool get _isWeb => kIsWeb;
 
   late final User _user = widget.user;
 
+  // بيانات إضافية
   bool _isChatLoading = false;
   bool _hasMoreMessages = true;
+  
+  bool get _areAllMessagesSelected => _selectedMessageIds.length == _messages.length && _messages.isNotEmpty;
+
+  void _toggleSelectAll() {
+    setState(() {
+      if (_areAllMessagesSelected) {
+        _selectedMessageIds.clear();
+      } else {
+        _selectedMessageIds = _messages.map((msg) => msg['id'].toString()).toSet();
+      }
+    });
+  }
+
+  void _toggleMessageSelection(dynamic message) {
+    setState(() {
+      final messageId = message['id'].toString();
+      if (_selectedMessageIds.contains(messageId)) {
+        _selectedMessageIds.remove(messageId);
+      } else {
+        _selectedMessageIds.add(messageId);
+      }
+      if (_selectedMessageIds.isEmpty) {
+        _isSelectionMode = false;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -75,21 +102,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
 
     _focusNode.addListener(_onFocusChange);
 
+    // الاستماع للرسائل الجديدة
     _messagesSubscription = _socketService.messagesStream.listen((data) {
-      if (mounted && data['senderId'].toString() == widget.targetUser['id'].toString()) {
-        setState(() {
-          _messages.add(data);
-        });
-        _scrollToBottom();
-        Future.delayed(const Duration(milliseconds: 200), () {
-          _markMessageAsRead(data['id']);
-        });
+      if (mounted) {
+        _handleIncomingMessage(data);
       }
     });
 
+    // الاستماع لتحديثات حالة الرسائل
     _messageStatusSubscription = _socketService.messageStatusStream.listen((data) {
       if (mounted) {
-        _updateMessageStatus(data);
+        _handleMessageStatusUpdate(data);
       }
     });
 
@@ -98,41 +121,165 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     
     _scrollController.addListener(_onScroll);
     
-    _fetchChatHistory().then((_) {
+    // تحميل المحادثة وتصفير العدادات
+    _initializeChatPage();
+  }
+
+  Future<void> _initializeChatPage() async {
+    await _fetchChatHistory();
+    
+    // تصفير عداد الرسائل غير المقروءة عند فتح المحادثة
+    _socketService.clearUnreadCountForSender(widget.targetUser['id'].toString());
+    
+    if (mounted && _messages.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients && _messages.isNotEmpty) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-          if (_isIOS) {
-            HapticFeedback.mediumImpact();
-          }
-          Future.delayed(const Duration(milliseconds: 800), () {
-            _markAllMessagesAsRead();
+        _scrollToBottom(force: true);
+        Future.delayed(const Duration(milliseconds: 800), () {
+          _markVisibleMessagesAsRead();
+        });
+      });
+    }
+  }
+
+  void _handleIncomingMessage(Map<String, dynamic> data) {
+    final senderId = data['senderId'].toString();
+    final receiverId = data['receiverId'].toString();
+    final myId = _user.id.toString();
+    final targetId = widget.targetUser['id'].toString();
+
+    // التأكد أن الرسالة تخص هذه المحادثة
+    if ((senderId == targetId && receiverId == myId) || 
+        (senderId == myId && receiverId == targetId)) {
+
+      final messageId = data['id'].toString();
+      final tempId = data['tempId']?.toString();
+
+      setState(() {
+        int existingIndex = -1;
+
+        // البحث عن الرسالة المؤقتة أولاً
+        if (tempId != null) {
+          existingIndex = _messages.indexWhere((msg) => msg['id'].toString() == tempId);
+        }
+
+        // ثم البحث بالمعرف الفعلي
+        if (existingIndex == -1) {
+          existingIndex = _messages.indexWhere((msg) => msg['id'].toString() == messageId);
+        }
+
+        if (existingIndex != -1) {
+          // تحديث الرسالة الموجودة
+          _messages[existingIndex] = {
+            ...data,
+            'isMyMessage': senderId == myId,
+          };
+          debugPrint('Updated existing message to prevent duplication');
+        } else {
+          // إضافة رسالة جديدة
+          _messages.add({
+            ...data,
+            'isMyMessage': senderId == myId,
           });
+          debugPrint('Added new message to chat');
         }
       });
-    });
 
-    _socketService.socket.on('messageDeleted', (data) {
-      if (mounted) {
-        final messageId = data['messageId'];
-        setState(() {
-          _messages.removeWhere((msg) => msg['id'].toString() == messageId.toString());
+      _scrollToBottom(force: true);
+
+      // قراءة الرسائل الواردة تلقائياً
+      if (senderId == targetId) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _markMessageAsRead(messageId, senderId);
         });
       }
-    });
+    }
 
-    _socketService.socket.on('messageEdited', (data) {
-      if (mounted) {
-        final messageId = data['id'];
-        final newContent = data['newContent'];
-        final index = _messages.indexWhere((msg) => msg['id'].toString() == messageId.toString());
-        if (index != -1) {
-          setState(() {
-            _messages[index]['content'] = newContent;
-          });
-        }
-      }
+    if (data['replyToMessageContent'] != null) {
+     debugPrint('✅ Received message with reply: ${data['replyToMessageContent']}');
+    }
+  }
+
+  void _handleMessageStatusUpdate(Map<String, dynamic> data) {
+    final action = data['action'];
+    
+    switch (action) {
+      case 'deleted':
+        _handleMessageDeletion(data);
+        break;
+      case 'edited':
+        _handleMessageEdit(data);
+        break;
+      case 'status_update':
+        _handleStatusUpdate(data);
+        break;
+      case 'error':
+        _handleMessageError(data);
+        break;
+    }
+  }
+
+  void _handleMessageDeletion(Map<String, dynamic> data) {
+    final messageId = data['messageId'].toString();
+    setState(() {
+      _messages.removeWhere((msg) => msg['id'].toString() == messageId);
     });
+    debugPrint('Message deleted: $messageId');
+  }
+
+  void _handleMessageEdit(Map<String, dynamic> data) {
+    final messageId = data['messageId'].toString();
+    final newContent = data['newContent'];
+    final updatedAt = data['updatedAt'];
+    
+    final index = _messages.indexWhere((msg) => msg['id'].toString() == messageId);
+    if (index != -1) {
+      setState(() {
+        _messages[index]['content'] = newContent;
+        _messages[index]['updatedAt'] = updatedAt;
+      });
+      debugPrint('Message edited: $messageId');
+    }
+  }
+
+  void _handleStatusUpdate(Map<String, dynamic> data) {
+    final String messageId = data['messageId'].toString();
+    final String? tempId = data['tempId']?.toString();
+    final String status = data['status'];
+    
+    for (int i = 0; i < _messages.length; i++) {
+      final msg = _messages[i];
+      final msgId = msg['id'].toString();
+      
+      if (msgId == messageId || (tempId != null && msgId == tempId)) {
+        setState(() {
+          // تحديث ID إذا كان مؤقتاً
+          if (tempId != null && msgId == tempId) {
+            _messages[i]['id'] = messageId;
+          }
+          
+          // تحديث حالة التسليم/القراءة
+          if (status == 'delivered') {
+            _messages[i]['deliveredStatus'] = true;
+          } else if (status == 'read') {
+            _messages[i]['deliveredStatus'] = true;
+            _messages[i]['readStatus'] = true;
+          }
+        });
+        break;
+      }
+    }
+  }
+
+  void _handleMessageError(Map<String, dynamic> data) {
+    final tempId = data['tempId']?.toString();
+    if (tempId != null) {
+      setState(() {
+        _messages.removeWhere((msg) => msg['id'].toString() == tempId);
+      });
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('خطأ في إرسال الرسالة', style: GoogleFonts.almarai())),
+    );
   }
 
   void _onFocusChange() {
@@ -192,7 +339,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
   }
 
   void _onScroll() {
-    _markAllMessagesAsRead();
+    _markVisibleMessagesAsRead();
     if (_scrollController.position.pixels <= 0 && !_isRefreshing) {
       _handleRefresh();
     }
@@ -200,14 +347,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
 
   Future<void> _handleRefresh() async {
     if (_isRefreshing) return;
+    
     setState(() {
       _isRefreshing = true;
     });
+    
     if (_isIOS) {
       HapticFeedback.mediumImpact();
-    } 
-    await Future.delayed(const Duration(seconds: 2));
+    }
+    
     await _fetchChatHistory();
+    
     if (mounted) {
       setState(() {
         _isRefreshing = false;
@@ -220,22 +370,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
   }
 
   void _onLongPress(dynamic message) {
-    _onMessageLongPress(message);
-  }
-
-  void _onMessageTap(dynamic message) {
-    _toggleMessageSelection(message);
-  }
-
-  Future<void> _fetchMoreMessages() async {
-    if (_isChatLoading || !_hasMoreMessages) return;
-    setState(() {
-      _isChatLoading = true;
-    });
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() {
-      _isChatLoading = false;
-    });
+    MessageOptionsSheet.showForMessage(
+      context: context,
+      message: message,
+      myUserId: _user.id.toString(),
+      onAction: _handleMessageAction,
+    );
   }
 
   void _updateDeliveryStatusForUndeliveredMessages() {
@@ -249,65 +389,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     });
   }
 
-  void _updateMessageStatus(dynamic data) {
-    if (data['action'] == 'bulkDeleted') {
-      final List<String> messageIds = List<String>.from(data['messageIds']);
-      setState(() {
-        _messages.removeWhere((msg) => messageIds.contains(msg['id'].toString()));
-      });
-      return;
-    }
-    if (data['action'] == 'deleted') {
-      final messageId = data['messageId'].toString();
-      setState(() {
-        _messages.removeWhere((msg) => msg['id'].toString() == messageId);
-      });
-      return;
-    }
-    if (data['action'] == 'edited') {
-      final messageId = data['messageId'].toString();
-      final newContent = data['newContent'];
-      final newUpdatedAt = data['updatedAt'];
-      final index = _messages.indexWhere((msg) => msg['id'].toString() == messageId);
-      if (index != -1) {
-        setState(() {
-          _messages[index]['content'] = newContent;
-          _messages[index]['updatedAt'] = newUpdatedAt;
-        });
-      }
-      return;
-    }
-    final String messageId = data['messageId'].toString();
-    final String? tempId = data['tempId']?.toString();
-    final String status = data['status'];
-    int messageIndex = -1;
-    if (tempId != null) {
-      messageIndex = _messages.indexWhere((msg) => msg['id'].toString() == tempId);
-    }
-    if (messageIndex == -1) {
-      messageIndex = _messages.indexWhere((msg) => msg['id'].toString() == messageId);
-    }
-    if (messageIndex != -1) {
-      setState(() {
-        if (tempId != null && _messages[messageIndex]['id'].toString() == tempId) {
-          _messages[messageIndex]['id'] = messageId;
-        }
-        if (status == 'delivered') {
-          _messages[messageIndex]['deliveredStatus'] = true;
-        } else if (status == 'read') {
-          _messages[messageIndex]['deliveredStatus'] = true;
-          _messages[messageIndex]['readStatus'] = true;
-        }
-      });
-    }
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
+      // تصفير العدادات عند العودة للتطبيق
+      _socketService.clearUnreadCountForSender(widget.targetUser['id'].toString());
       Future.delayed(const Duration(milliseconds: 500), () {
-        _markAllMessagesAsRead();
+        _markVisibleMessagesAsRead();
       });
     } else if (state == AppLifecycleState.paused) {
       _stopTyping();
@@ -316,81 +405,95 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
 
   Future<void> _fetchChatHistory() async {
     if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
     });
+
     try {
       final response = await http.get(
         Uri.parse('${AuthService.baseUrl}/api/chat/history/${widget.targetUser['id']}'),
-        headers: {'Authorization': 'Bearer ${_user.token}'},
+        headers: {'Authorization': 'Bearer ${widget.user.token}'},
       );
-      if (response.statusCode == 200) {
-        if (mounted) {
-          final List<dynamic> fetchedMessages = json.decode(response.body);
-          final prefs = await SharedPreferences.getInstance();
-          final String chatKey = 'deleted_messages_${_user.id}_${widget.targetUser['id']}';
-          final List<String> deletedMessageIds = prefs.getStringList(chatKey) ?? [];
-          
-          final filteredMessages = fetchedMessages.where((msg) => !deletedMessageIds.contains(msg['id'].toString())).toList();
 
-          setState(() {
-            _messages = filteredMessages;
-            _isLoading = false;
-          });
-        }
+      if (response.statusCode == 200) {
+        final List<dynamic> fetchedMessages = json.decode(response.body);
+
+        setState(() {
+          _messages.clear();
+          _messages.addAll(fetchedMessages);
+          _isLoading = false;
+          _hasMoreMessages = fetchedMessages.length >= 50;
+        });
+        
+        _scrollToBottom();
+        _markVisibleMessagesAsRead();
+        
       } else {
+        debugPrint('Failed to load chat history. Status code: ${response.statusCode}');
         if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('فشل في تحميل المحادثة', style: GoogleFonts.almarai())),
+          );
           setState(() {
             _isLoading = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load chat history.', style: GoogleFonts.almarai())),
-          );
         }
       }
     } catch (e) {
+      debugPrint('Error fetching chat history: $e');
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في الاتصال بالخادم', style: GoogleFonts.almarai())),
+        );
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في تحميل تاريخ المحادثة: $e', style: GoogleFonts.almarai())),
-        );
       }
     }
   }
 
-  void _sendMessage() {
-    final text = _textController.text.trim();
-    if (text.isEmpty) return;
-    final tempId = DateTime.now().microsecondsSinceEpoch.toString();
-    final messageData = {
-      'id': tempId,
-      'senderId': _user.id.toString(),
-      'receiverId': widget.targetUser['id'].toString(),
-      'content': text,
-      'readStatus': false, 
-      'deliveredStatus': false,
-      'createdAt': DateTime.now().toIso8601String(),
-      'replyToMessageId': _replyingToMessage != null ? _replyingToMessage['id'] : null,
-      'replyToMessageContent': _replyingToMessage != null ? _replyingToMessage['content'] : null,
-    };
+    void _sendMessage() async {
+    if (_textController.text.trim().isEmpty) return;
+
+    final String content = _textController.text.trim();
+    final String tempId = DateTime.now().microsecondsSinceEpoch.toString();
+    
+    // حفظ بيانات الرد قبل مسحها
+    final String? replyToMessageId = _replyingToMessage?['id']?.toString();
+    final String? replyToMessageContent = _replyingToMessage?['content'];
+    
+    _textController.clear();
+
+    // إضافة الرسالة المؤقتة للواجهة مع بيانات الرد
     setState(() {
-      _messages.add(messageData);
+      _messages.add({
+        'id': tempId,
+        'senderId': _user.id.toString(),
+        'receiverId': widget.targetUser['id'].toString(),
+        'content': content,
+        'deliveredStatus': false,
+        'readStatus': false,
+        'createdAt': DateTime.now().toIso8601String(),
+        'replyToMessageId': replyToMessageId,
+        'replyToMessageContent': replyToMessageContent,
+        'isMyMessage': true,
+      });
+      // مسح الرد بعد حفظ البيانات
       _replyingToMessage = null;
     });
-    _textController.clear();
-    Future.delayed(const Duration(milliseconds: 50), () {
-      _scrollToBottom();
-    });
-    _socketService.emitEvent('sendMessage', {
-      'senderId': _user.id,
-      'receiverId': widget.targetUser['id'],
-      'content': text,
-      'tempId': tempId,
-      'replyToMessageId': messageData['replyToMessageId'],
-      'replyToMessageContent': messageData['replyToMessageContent'],
-    });
+
+    // إرسال الرسالة للخادم مع بيانات الرد
+    _socketService.sendMessage(
+      senderId: _user.id.toString(),
+      receiverId: widget.targetUser['id'].toString(),
+      content: content,
+      tempId: tempId,
+      replyToMessageId: replyToMessageId,
+      replyToMessageContent: replyToMessageContent,
+    );
+    
+    _scrollToBottom();
     _stopTyping();
   }
 
@@ -408,30 +511,42 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     if (_isIOS) {
       HapticFeedback.mediumImpact();
     }
+    final messageId = message['id'].toString();
     
-    final prefs = await SharedPreferences.getInstance();
-    final String chatKey = 'deleted_messages_${_user.id}_${widget.targetUser['id']}';
-    final List<String> currentDeleted = prefs.getStringList(chatKey) ?? [];
-    currentDeleted.add(message['id'].toString());
-    await prefs.setStringList(chatKey, currentDeleted);
-
     setState(() {
-      _messages.removeWhere((msg) => msg['id'].toString() == message['id'].toString());
+      _messages.removeWhere((msg) => msg['id'].toString() == messageId);
     });
+
+    // حفظ محلياً
+    await _saveDeletedMessagesLocally([messageId]);
   }
 
-  void _deleteMessageForEveryone(dynamic message) {
+  Future<void> _deleteMessageForEveryone(dynamic message) async {
     if (_isIOS) {
       HapticFeedback.mediumImpact();
     }
-    _socketService.emitEvent('deleteMessage', {
-      'messageId': message['id'].toString(),
-      'senderId': _user.id,
-      'receiverId': widget.targetUser['id'],
-    });
+    final messageId = message['id'].toString();
+    
+    _socketService.deleteMessage(
+      messageId,
+      _user.id.toString(),
+      widget.targetUser['id'].toString(),
+      'forEveryone',
+    );
   }
 
-  // ✅ Updated _editMessage function
+  Future<void> _saveDeletedMessagesLocally(List<String> messageIds) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String chatKey = 'deleted_messages_${_user.id}_${widget.targetUser['id']}';
+      final List<String> deletedMessageIds = prefs.getStringList(chatKey) ?? [];
+      deletedMessageIds.addAll(messageIds);
+      await prefs.setStringList(chatKey, deletedMessageIds);
+    } catch (e) {
+      debugPrint('Error saving deleted messages locally: $e');
+    }
+  }
+
   void _editMessage(dynamic message) {
     if (_isIOS) {
       _showNativeEditMessageDialog(message);
@@ -442,12 +557,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
           return EditMessageDialog(
             initialContent: message['content'],
             onSave: (newContent) {
-              _socketService.emitEvent('editMessage', {
-                'messageId': message['id'].toString(),
-                'senderId': _user.id,
-                'newContent': newContent,
-                'receiverId': widget.targetUser['id'],
-              });
+              _socketService.editMessage(
+                message['id'].toString(),
+                _user.id.toString(),
+                widget.targetUser['id'].toString(),
+                newContent,
+              );
             },
           );
         },
@@ -455,7 +570,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     }
   }
 
-  // ✅ New method to show the native edit dialog
   Future<void> _showNativeEditMessageDialog(dynamic message) async {
     try {
       final newContent = await platform.invokeMethod('showEditMessageDialog', {
@@ -463,16 +577,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
       });
 
       if (newContent != null) {
-        _socketService.emitEvent('editMessage', {
-          'messageId': message['id'].toString(),
-          'senderId': _user.id,
-          'newContent': newContent,
-          'receiverId': widget.targetUser['id'],
-        });
+        _socketService.editMessage(
+          message['id'].toString(),
+          _user.id.toString(),
+          widget.targetUser['id'].toString(),
+          newContent,
+        );
       }
     } on PlatformException catch (e) {
-      print("Failed to show native edit dialog: '${e.message}'.");
-      // Optionally, you can fall back to the Flutter dialog if the native one fails
+      debugPrint("Failed to show native edit dialog: '${e.message}'");
       _editMessage(message); 
     }
   }
@@ -480,115 +593,146 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
   void _onTyping(String text) {
     if (!_isTyping && text.trim().isNotEmpty) {
       _isTyping = true;
-      _socketService.emitEvent('typing', {
-        'senderId': _user.id,
-        'receiverId': widget.targetUser['id'],
-        'isTyping': true,
-      });
+      _socketService.emitTyping(
+        _user.id.toString(),
+        widget.targetUser['id'].toString(),
+        true,
+      );
     } else if (_isTyping && text.trim().isEmpty) {
       _isTyping = false;
-      _socketService.emitEvent('typing', {
-        'senderId': _user.id,
-        'receiverId': widget.targetUser['id'],
-        'isTyping': false,
-      });
+      _socketService.emitTyping(
+        _user.id.toString(),
+        widget.targetUser['id'].toString(),
+        false,
+      );
     }
   }
 
   void _stopTyping() {
     if (_isTyping) {
       _isTyping = false;
-      _socketService.emitEvent('typing', {
-        'senderId': _user.id,
-        'receiverId': widget.targetUser['id'],
-        'isTyping': false,
-      });
+      _socketService.emitTyping(
+        _user.id.toString(),
+        widget.targetUser['id'].toString(),
+        false,
+      );
     }
   }
 
-  void _markMessageAsRead(dynamic messageId) {
-    if (messageId == null) return;
-    _socketService.emitEvent('readMessage', {
-      'messageId': messageId,
-      'senderId': widget.targetUser['id'],
-      'receiverId': _user.id
-    });
+  void _markMessageAsRead(String messageId, String senderId) {
+    _socketService.markMessageAsRead(
+      messageId,
+      senderId,
+      _user.id.toString(),
+    );
   }
 
-  void _markAllMessagesAsRead() {
+  void _markVisibleMessagesAsRead() {
     if (_messages.isEmpty) return;
+    
     for (var message in _messages) {
       if (message['senderId'].toString() == widget.targetUser['id'].toString() &&
-          (message['readStatus'] == false || message['readStatus'] == null || message['readStatus'] == 0)) {
-        _markMessageAsRead(message['id']);
+          (message['readStatus'] == false || message['readStatus'] == 0)) {
+        _markMessageAsRead(message['id'].toString(), message['senderId'].toString());
       }
     }
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool force = false}) {
     if (!_scrollController.hasClients) return;
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients && mounted) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        if (_isIOS || _isWeb) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: Duration(milliseconds: force ? 100 : 300),
+            curve: Curves.easeOut,
+          );
+        } else {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
       }
     });
   }
 
-  void _onMessageLongPress(dynamic message) {
+  void _handleMessageAction(String? action, dynamic message) {
+    if (action == null) return;
+    switch (action) {
+      case 'select':
+        setState(() {
+          _isSelectionMode = true;
+          _toggleMessageSelection(message);
+        });
+        break;
+      case 'reply':
+        _replyToMessage(message);
+        break;
+      case 'edit':
+        _editMessage(message);
+        break;
+      case 'delete_for_everyone':
+        _deleteMessageForEveryone(message);
+        break;
+      case 'delete_for_me':
+        _deleteMessageForMe(message);
+        break;
+    }
+  }
+  
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedMessageIds.clear();
+    });
+  }
+  
+  bool get _canDeleteForEveryone => _selectedMessageIds.isNotEmpty && _selectedMessageIds.every((id) {
+    final message = _messages.firstWhere((msg) => msg['id'].toString() == id, orElse: () => null);
+    return message != null && message['senderId']?.toString() == _user.id.toString();
+  });
+
+  void _showBulkDeleteDialog() {
     if (_isIOS) {
-      _showNativeActionSheet(message);
+      _showNativeBulkDeleteDialog();
     } else {
       showCupertinoModalPopup(
         context: context,
         builder: (BuildContext context) {
-          final isMyMessage = message['senderId'].toString() == _user.id.toString();
           return CupertinoActionSheet(
-            title: Text('خيارات الرسالة', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
+            title: Text(
+              'حذف الرسائل المحددة',
+              style: GoogleFonts.almarai(fontWeight: FontWeight.bold),
+            ),
             actions: <CupertinoActionSheetAction>[
               CupertinoActionSheetAction(
                 onPressed: () {
                   Navigator.pop(context);
-                  setState(() {
-                    _isSelectionMode = true;
-                    _toggleMessageSelection(message);
-                  });
+                  _deleteSelectedMessages(isDeleteForEveryone: false);
                 },
-                child: Text('تحديد', style: GoogleFonts.almarai(color: CupertinoColors.activeBlue)),
+                child: Text(
+                  'حذف لدي',
+                  style: GoogleFonts.almarai(color: CupertinoColors.systemRed),
+                ),
               ),
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _replyToMessage(message);
-                },
-                child: Text('رد', style: GoogleFonts.almarai(color: CupertinoColors.activeBlue)),
-              ),
-              if (isMyMessage)
+              if (_canDeleteForEveryone)
                 CupertinoActionSheetAction(
                   onPressed: () {
                     Navigator.pop(context);
-                    _editMessage(message);
+                    _deleteSelectedMessages(isDeleteForEveryone: true);
                   },
-                  child: Text('تعديل', style: GoogleFonts.almarai(color: CupertinoColors.activeBlue)),
+                  child: Text(
+                    'حذف لدى الجميع',
+                    style: GoogleFonts.almarai(color: CupertinoColors.systemRed),
+                  ),
                 ),
-              if (isMyMessage)
-                CupertinoActionSheetAction(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _deleteMessageForEveryone(message);
-                  },
-                  child: Text('حذف لدى الجميع', style: GoogleFonts.almarai(color: CupertinoColors.systemRed)),
-                ),
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _deleteMessageForMe(message);
-                },
-                child: Text('حذف لدي', style: GoogleFonts.almarai(color: CupertinoColors.systemRed)),
-              ),
             ],
             cancelButton: CupertinoActionSheetAction(
-              onPressed: () => Navigator.pop(context),
-              child: Text('إلغاء', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'إلغاء',
+                style: GoogleFonts.almarai(fontWeight: FontWeight.bold),
+              ),
             ),
           );
         },
@@ -596,140 +740,102 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     }
   }
 
-  // ✅ New method to show the native iOS action sheet
-  Future<void> _showNativeActionSheet(dynamic message) async {
+  Future<void> _showNativeBulkDeleteDialog() async {
     HapticFeedback.lightImpact();
-    final isMyMessage = message['senderId'].toString() == _user.id.toString();
-
     final List<Map<String, String>> actions = [
-      {'title': 'تحديد', 'action': 'select'},
-      {'title': 'رد', 'action': 'reply'},
-      if (isMyMessage) ...[
-        {'title': 'تعديل', 'action': 'edit'},
-        {'title': 'حذف لدى الجميع', 'action': 'delete_for_everyone'},
-      ],
-      {'title': 'حذف لدي', 'action': 'delete_for_me'},
+      {'title': 'حذف لدي', 'action': 'delete_for_me_bulk'},
     ];
+    
+    if (_canDeleteForEveryone) {
+      actions.add({'title': 'حذف لدى الجميع', 'action': 'delete_for_everyone_bulk'});
+    }
 
     try {
       final String? selectedAction = await platform.invokeMethod('showActionSheet', {
-        'title': 'خيارات الرسالة',
+        'title': 'حذف الرسائل المحددة',
         'actions': actions,
       });
 
       switch (selectedAction) {
-        case 'select':
-          setState(() {
-            _isSelectionMode = true;
-            _toggleMessageSelection(message);
-          });
+        case 'delete_for_me_bulk':
+          _deleteSelectedMessages(isDeleteForEveryone: false);
           break;
-        case 'reply':
-          _replyToMessage(message);
-          break;
-        case 'edit':
-          _editMessage(message);
-          break;
-        case 'delete_for_everyone':
-          _deleteMessageForEveryone(message);
-          break;
-        case 'delete_for_me':
-          _deleteMessageForMe(message);
-          break;
-        default:
-          // User canceled or no action was selected
+        case 'delete_for_everyone_bulk':
+          _deleteSelectedMessages(isDeleteForEveryone: true);
           break;
       }
     } on PlatformException catch (e) {
-      print("Failed to show native action sheet: '${e.message}'.");
+      debugPrint("Failed to show native bulk delete dialog: '${e.message}'");
     }
-  }
-
-  void _toggleMessageSelection(dynamic message) {
-    setState(() {
-      final messageId = message['id'].toString();
-      if (_selectedMessageIds.contains(messageId)) {
-        _selectedMessageIds.remove(messageId);
-      } else {
-        _selectedMessageIds.add(messageId);
-      }
-      if (_selectedMessageIds.isEmpty) {
-        _isSelectionMode = false;
-      }
-    });
-  }
-
-  void _exitSelectionMode() {
-    setState(() {
-      _isSelectionMode = false;
-      _selectedMessageIds.clear();
-    });
-  }
-
-  void _showBulkDeleteDialog() {
-    showCupertinoModalPopup(
-      context: context,
-      builder: (BuildContext context) {
-        return CupertinoActionSheet(
-          title: Text(
-            'حذف الرسائل المحددة',
-            style: GoogleFonts.almarai(fontWeight: FontWeight.bold),
-          ),
-          actions: <CupertinoActionSheetAction>[
-            CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.pop(context);
-                _deleteSelectedMessages(isDeleteForEveryone: false);
-              },
-              child: Text(
-                'حذف لدي',
-                style: GoogleFonts.almarai(color: CupertinoColors.systemRed),
-              ),
-            ),
-            if (_selectedMessageIds.isNotEmpty && _selectedMessageIds.every((id) => _messages.firstWhere((msg) => msg['id'].toString() == id, orElse: () => null)?['senderId']?.toString() == _user.id.toString()))
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _deleteSelectedMessages(isDeleteForEveryone: true);
-                },
-                child: Text(
-                  'حذف لدى الجميع',
-                  style: GoogleFonts.almarai(color: CupertinoColors.systemRed),
-                ),
-              ),
-          ],
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'إلغاء',
-              style: GoogleFonts.almarai(fontWeight: FontWeight.bold),
-            ),
-          ),
-        );
-      },
-    );
   }
 
   Future<void> _deleteSelectedMessages({required bool isDeleteForEveryone}) async {
     final messageIdsToDelete = _selectedMessageIds.toList();
-    if (isDeleteForEveryone) {
-      _socketService.emitEvent('bulkDeleteMessages', {
-        'messageIds': messageIdsToDelete,
-        'senderId': _user.id,
-        'receiverId': widget.targetUser['id'],
-      });
-    } else {
-      final prefs = await SharedPreferences.getInstance();
-      final String chatKey = 'deleted_messages_${_user.id}_${widget.targetUser['id']}';
-      List<String> currentDeleted = prefs.getStringList(chatKey) ?? [];
-      currentDeleted.addAll(messageIdsToDelete);
-      await prefs.setStringList(chatKey, currentDeleted);
+    if (messageIdsToDelete.isEmpty) return;
 
-      setState(() {
-        _messages.removeWhere((msg) => messageIdsToDelete.contains(msg['id'].toString()));
-      });
+    if (_isIOS) {
+      HapticFeedback.mediumImpact();
     }
+
+    if (isDeleteForEveryone) {
+      try {
+        final response = await http.post(
+          Uri.parse('${AuthService.baseUrl}/api/chat/delete-message'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${_user.token}',
+          },
+          body: json.encode({
+            'messageIds': messageIdsToDelete,
+            'deleteType': 'forEveryone'
+          }),
+        );
+        
+        if (response.statusCode == 200) {
+          for (final messageId in messageIdsToDelete) {
+            _socketService.deleteMessage(
+              messageId,
+              _user.id.toString(),
+              widget.targetUser['id'].toString(),
+              'forEveryone',
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error deleting bulk messages for everyone: $e');
+      }
+    } else {
+      await _saveDeletedMessagesLocally(messageIdsToDelete);
+    }
+    
+    setState(() {
+      _messages.removeWhere((msg) => messageIdsToDelete.contains(msg['id'].toString()));
+    });
+    
     _exitSelectionMode();
+  }
+  
+  Future<bool> _handleBackPress() async {
+    // إذا كان هناك رد نشط أو وضع التحديد مفعل، اخرج من هذه الأوضاع أولاً
+    if (_replyingToMessage != null || _isSelectionMode) {
+      setState(() {
+        _replyingToMessage = null;
+        _isSelectionMode = false;
+        _selectedMessageIds.clear();
+      });
+      return false; // البقاء في الصفحة
+    }
+
+    // إذا كان لوحة المفاتيح مفتوحة، أغلقها قبل الرجوع
+    if (_focusNode.hasFocus) {
+      _focusNode.unfocus();
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+
+    // تأكد من تصفير العدادات قبل المغادرة
+    _socketService.clearUnreadCountForSender(widget.targetUser['id'].toString());
+
+    return true; // السماح بالرجوع
   }
 
   @override
@@ -756,59 +862,160 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
           selectionColor: Colors.blue.shade100,
           selectionHandleColor: Colors.blue.shade800,
         ),
-        child: Scaffold(
-          backgroundColor: Colors.white,
-          body: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: _isLoading
-                  ? Center(
-                      child: _isIOS
-                          ? const CupertinoActivityIndicator(radius: 20)
-                          : const CircularProgressIndicator(color: Color(0xFF2C3E50)),
-                    )
-                  : ChatMessageList(
-                      targetUser: widget.targetUser,
-                      isOnline: _isOnline,
-                      isTargetUserTyping: _isTargetUserTyping,
-                      messages: _messages,
-                      user: _user,
-                      messageKeys: _messageKeys,
-                      highlightedMessageId: _highlightedMessageId,
-                      isSelectionMode: _isSelectionMode,
-                      selectedMessageIds: _selectedMessageIds,
-                      scrollController: _scrollController,
-                      isIOS: _isIOS,
-                      onMarkAllMessagesAsRead: _markAllMessagesAsRead,
-                      onReply: _onReply,
-                      onLongPress: _onLongPress,
-                      onMessageTap: _onMessageTap,
-                      showBulkDeleteDialog: _showBulkDeleteDialog,
-                      exitSelectionMode: _exitSelectionMode,
-                      isChatLoading: _isChatLoading,
-                      hasMoreMessages: _hasMoreMessages,
-                      onFetchMoreMessages: _fetchMoreMessages,
-                      onRefresh: _handleRefresh,
-                    ),
+        child: WillPopScope(
+          onWillPop: _handleBackPress,
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            body: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: _isLoading
+                    ? Center(
+                        child: _isIOS
+                            ? const CupertinoActivityIndicator(radius: 20)
+                            : const CircularProgressIndicator(color: Color(0xFF2C3E50)),
+                      )
+                    : GestureDetector(
+                        onTap: () {
+                          FocusScope.of(context).unfocus();
+                        },
+                        child: CustomScrollView(
+                          controller: _scrollController,
+                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                          physics: _isIOS
+                              ? const BouncingScrollPhysics()
+                              : const ClampingScrollPhysics(),
+                          slivers: [
+                            _isSelectionMode
+                                ? SliverAppBar(
+                                    expandedHeight: 140,
+                                    collapsedHeight: 100,
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    elevation: 1,
+                                    centerTitle: true,
+                                    title: Text(
+                                      '${_selectedMessageIds.length} رسالة محددة',
+                                      style: GoogleFonts.almarai(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                    actions: [
+                                      IconButton(
+                                        icon: const Icon(Icons.delete),
+                                        onPressed: _showBulkDeleteDialog,
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          _areAllMessagesSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                                          color: Colors.black,
+                                        ),
+                                        onPressed: _toggleSelectAll,
+                                      ),
+                                    ],
+                                    leading: IconButton(
+                                      icon: const Icon(Icons.close),
+                                      onPressed: _exitSelectionMode,
+                                    ),
+                                    floating: true,
+                                    snap: true,
+                                    pinned: true,
+                                  )
+                                : SliverAppBar(
+                                    expandedHeight: 140,
+                                    collapsedHeight: 100,
+                                    floating: true,
+                                    pinned: true,
+                                    backgroundColor: Colors.transparent,
+                                    elevation: 0,
+                                    toolbarHeight: 100,
+                                    leading: Padding(
+                                      padding: const EdgeInsets.only(top: 20),
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          bool canPop = await _handleBackPress();
+                                          if (canPop) {
+                                            Navigator.of(context).pop(true);
+                                          }
+                                        },
+                                        child: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
+                                      ),
+                                    ),
+                                    title: Container(),
+                                    flexibleSpace: ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+                                      child: ChatAppBar(
+                                        targetUser: widget.targetUser,
+                                        isOnline: _isOnline,
+                                        isTargetUserTyping: _isTargetUserTyping,
+                                      ),
+                                    ),
+                                  ),
+                            CupertinoSliverRefreshControl(
+                              onRefresh: _handleRefresh,
+                            ),
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (BuildContext context, int index) {
+                                  final message = _messages[index];
+                                  final messageId = message['id'].toString();
+                                  
+                                  // إنشاء مفتاح للرسالة
+                                  _messageKeys[messageId] ??= GlobalKey();
+                                  
+                                  return GestureDetector(
+                                    onLongPress: () {
+                                      if (!_isSelectionMode) {
+                                        _onLongPress(message);
+                                      } else {
+                                        _toggleMessageSelection(message);
+                                      }
+                                    },
+                                    onTap: () {
+                                      if (_isSelectionMode) {
+                                        _toggleMessageSelection(message);
+                                      }
+                                    },
+                                    child: MessageBubble(
+                                      key: _messageKeys[messageId],
+                                      message: message,
+                                      isMyMessage: message['senderId'].toString() == _user.id.toString(),
+                                      onReply: _onReply,
+                                      onLongPress: _onLongPress,
+                                      repliedMessageContent: message['replyToMessageContent'],
+                                      repliedMessageId: message['replyToMessageId'],
+                                      isHighlighted: _highlightedMessageId == messageId,
+                                      isSelected: _selectedMessageIds.contains(messageId),
+                                    ),
+                                  );
+                                },
+                                childCount: _messages.length,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
             ),
+            bottomNavigationBar: _isSelectionMode
+                ? null
+                : ChatMessageInput(
+                    textController: _textController,
+                    focusNode: _focusNode,
+                    replyingToMessage: _replyingToMessage,
+                    user: _user,
+                    targetUser: widget.targetUser,
+                    onSendMessage: _sendMessage,
+                    onTyping: _onTyping,
+                    onReplyPreviewTap: () => _scrollToAndHighlight(_replyingToMessage?['id']?.toString()),
+                    onCancelReply: () {
+                      setState(() {
+                        _replyingToMessage = null;
+                      });
+                    },
+                  ),
           ),
-          bottomNavigationBar: _isSelectionMode
-              ? null
-              : ChatMessageInput(
-                  textController: _textController,
-                  focusNode: _focusNode,
-                  replyingToMessage: _replyingToMessage,
-                  user: _user,
-                  targetUser: widget.targetUser,
-                  onSendMessage: _sendMessage,
-                  onTyping: _onTyping,
-                  onReplyPreviewTap: () => _scrollToAndHighlight(_replyingToMessage['id'].toString()),
-                  onCancelReply: () {
-                    setState(() {
-                      _replyingToMessage = null;
-                    });
-                  },
-                ),
         ),
       ),
     );

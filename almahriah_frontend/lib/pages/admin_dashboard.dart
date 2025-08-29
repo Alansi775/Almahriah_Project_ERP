@@ -46,7 +46,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Future<void> _fetchDashboardStats() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.3.87:5050/api/admin/dashboard-stats'),
+        Uri.parse('http://192.168.1.67:5050/api/admin/dashboard-stats'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',

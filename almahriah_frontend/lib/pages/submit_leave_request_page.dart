@@ -79,7 +79,7 @@ class _SubmitLeaveRequestPageState extends State<SubmitLeaveRequestPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.3.87:5050/api/admin/leave-requests'),
+        Uri.parse('http://192.168.1.67:5050/api/admin/leave-requests'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',

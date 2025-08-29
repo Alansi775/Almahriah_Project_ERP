@@ -97,7 +97,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
   }
 
   Future<List<dynamic>> _fetchEmployeesByDepartment() async {
-    final url = Uri.parse('http://192.168.3.87:5050/api/tasks/employees');
+    final url = Uri.parse('http://192.168.1.67:5050/api/tasks/employees');
     try {
       final response = await http.get(
         url,
@@ -140,7 +140,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
       });
 
       try {
-        final url = Uri.parse('http://192.168.3.87:5050/api/tasks');
+        final url = Uri.parse('http://192.168.1.67:5050/api/tasks');
         final response = await http.post(
           url,
           headers: {

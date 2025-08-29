@@ -21,10 +21,9 @@ class ChatAppBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final double expandedHeight = constraints.biggest.height;
-        final double collapsedHeight = 100.0;
-        final double maxExpandedHeight = 140.0;
+        const double collapsedHeight = 100.0;
+        const double maxExpandedHeight = 140.0;
         
-        // This 't' value is the key to the animation. It goes from 0 to 1 as the app bar expands.
         final double t = ((expandedHeight - collapsedHeight) / (maxExpandedHeight - collapsedHeight)).clamp(0.0, 1.0);
 
         final double avatarSize = 40.0 + (5 * t);
@@ -91,7 +90,6 @@ class ChatAppBar extends StatelessWidget {
   }
   
   Widget _buildUserAvatar(String fullName, bool isOnline, double size) {
-    // Keep this helper method as is
     final String initials = fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
     final Color glowColor = isOnline ? Colors.green.shade400 : Colors.red.shade400;
 
