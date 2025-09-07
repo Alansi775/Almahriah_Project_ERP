@@ -1,4 +1,4 @@
-// lib/pages/chat_list_page.dart - النسخة المُحسنة والمُصححة
+// lib/pages/chat_list_page.dart - Final and Enhanced Version
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -11,6 +11,10 @@ import 'package:almahriah_frontend/services/auth_service.dart';
 import 'package:almahriah_frontend/custom_page_route.dart';
 import 'dart:ui';
 import 'package:almahriah_frontend/services/socket_service.dart';
+import 'package:almahriah_frontend/widgets/glassmorphism_widgets.dart'; // ✅ Add this import
+import 'package:flutter/cupertino.dart';
+import 'package:almahriah_frontend/widgets/user_profile_popup.dart'; 
+import 'package:flutter/services.dart';
 
 class ChatListPage extends StatefulWidget {
   final User user;
@@ -31,7 +35,6 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
   
   bool _socketConnected = false;
   
-  // StreamSubscription للرسائل الجديدة
   StreamSubscription? _messageSubscription;
   StreamSubscription? _statusSubscription;
 
@@ -55,33 +58,27 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // تحديث البيانات عند العودة للتطبيق
       _refreshData();
     }
   }
 
   Future<void> _initializeSocketAndFetchUsers() async {
-    // تهيئة Socket
     _socketService.initialize(widget.user);
     
-    // انتظار قصير للاتصال
     await Future.delayed(const Duration(milliseconds: 500));
     
     _socketConnected = _socketService.isConnected.value;
     
-    // إضافة المستمعين
     _socketService.isConnected.addListener(_updateConnectionStatus);
     _socketService.userStatus.addListener(_updateUsersStatus);
     _socketService.unreadCount.addListener(_updateUnreadCounts);
     
-    // الاستماع للرسائل الجديدة
     _messageSubscription = _socketService.messagesStream.listen((messageData) {
       if (mounted) {
         _handleNewMessage(messageData);
       }
     });
     
-    // الاستماع لتحديثات الحالة
     _statusSubscription = _socketService.messageStatusStream.listen((statusData) {
       if (mounted && statusData is Map) {
         if (statusData['action'] == 'read' || statusData['action'] == 'delivered') {
@@ -90,7 +87,6 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
       }
     });
     
-    // جلب البيانات
     await _fetchUsers();
     await _fetchUnreadCounts();
   }
@@ -111,11 +107,8 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
     final senderId = messageData['senderId'].toString();
     final currentUserId = widget.user.id.toString();
     
-    // تأكد أن الرسالة ليست مني وتحديث الواجهة
     if (senderId != currentUserId) {
       debugPrint('📥 New message received from $senderId in chat list');
-      // العداد يتم تحديثه تلقائياً في SocketService
-      // نحتاج فقط لترتيب القائمة
       _sortUsers();
     }
   }
@@ -136,7 +129,7 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
         });
         
         _socketService.setUnreadCounts(unreadCounts);
-        debugPrint('✅ Fetched unread counts: $unreadCounts');
+        debugPrint(' Fetched unread counts: $unreadCounts');
       }
     } catch (e) {
       debugPrint('❌ Error fetching unread counts: $e');
@@ -189,7 +182,6 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
       final aIsOnline = a['isLoggedIn'] == 1;
       final bIsOnline = b['isLoggedIn'] == 1;
       
-      // الأولوية للرسائل غير المقروءة أولاً
       if (aUnreadCount > 0 && bUnreadCount == 0) {
         return -1;
       }
@@ -197,7 +189,6 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
         return 1;
       }
       
-      // ثم الأولوية للمتصلين
       if (aIsOnline && !bIsOnline) {
         return -1;
       }
@@ -205,7 +196,6 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
         return 1;
       }
 
-      // أخيراً ترتيب أبجدي
       return a['fullName'].compareTo(b['fullName']);
     });
   }
@@ -236,6 +226,14 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
           _updateUsersStatus();
           _updateUnreadCounts();
         }
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجددًا.', style: GoogleFonts.almarai()),
+          ),
+        );
+        AuthService.logout(context, widget.user.id);
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -273,46 +271,46 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
   }
   
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Row(
-          children: [
-            Text(
-              'المحادثات',
-              style: GoogleFonts.almarai(fontWeight: FontWeight.bold),
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.white,
+    appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      title: Row(
+        children: [
+          Text(
+            'المحادثات',
+            style: GoogleFonts.almarai(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _socketConnected ? Colors.green : Colors.red,
             ),
-            const SizedBox(width: 8),
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _socketConnected ? Colors.green : Colors.red,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          if (!_socketConnected)
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.red),
-              onPressed: _retryConnection,
-            ),
+          ),
         ],
-        flexibleSpace: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: _isScrolled ? 10 : 0, sigmaY: _isScrolled ? 10 : 0),
-            child: Container(
-              color: _isScrolled ? Colors.white.withOpacity(0.8) : Colors.transparent,
-            ),
+      ),
+      actions: [
+        if (!_socketConnected)
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.red),
+            onPressed: _retryConnection,
+          ),
+      ],
+      flexibleSpace: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: _isScrolled ? 10 : 0, sigmaY: _isScrolled ? 10 : 0),
+          child: Container(
+            color: _isScrolled ? Colors.white.withOpacity(0.8) : Colors.transparent,
           ),
         ),
       ),
-      body: Center(
+    ),
+    body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
           child: Column(
@@ -330,7 +328,11 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
                 ),
               Expanded(
                 child: isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF2C3E50)))
+                    ? Center(
+                        child: Theme.of(context).platform == TargetPlatform.iOS
+                            ? const CupertinoActivityIndicator(radius: 15.0)
+                            : const CircularProgressIndicator(color: Color(0xFF3498DB)),
+                      )
                     : users.isEmpty
                         ? Center(
                             child: Text(
@@ -339,50 +341,92 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
                               textAlign: TextAlign.center,
                             ),
                           )
-                        : RefreshIndicator(
-                            onRefresh: _refreshData,
-                            color: const Color(0xFF2C3E50),
-                            child: Scrollbar(
-                              controller: _scrollController,
-                              child: ListView.separated(
+                        : Theme.of(context).platform == TargetPlatform.iOS
+                            ? CustomScrollView(
                                 controller: _scrollController,
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                                itemCount: users.length,
-                                separatorBuilder: (context, index) => const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Divider(
-                                    color: Colors.black12,
-                                    height: 1,
-                                    thickness: 1,
-                                    indent: 72,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                slivers: [
+                                  CupertinoSliverRefreshControl(
+                                    onRefresh: _refreshData,
+                                  ),
+                                  SliverList(
+                                    delegate: SliverChildBuilderDelegate(
+                                      (BuildContext context, int index) {
+                                        final user = users[index];
+                                        final String initials = _getInitials(user['fullName']);
+                                        final bool isOnline = user['isLoggedIn'] == 1;
+                                        final int unreadCount = int.tryParse(user['unreadCount']?.toString() ?? '0') ?? 0;
+                                        final String? profilePictureUrl = user['profilePictureUrl'];
+                                        final String? role = user['role'];
+                                        final String? department = user['department'];
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                          child: _buildUserTile(context, user, initials, isOnline, unreadCount, profilePictureUrl, role, department),
+                                        );
+                                      },
+                                      childCount: users.length,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : RefreshIndicator(
+                                onRefresh: _refreshData,
+                                color: const Color(0xFF3498DB),
+                                child: Scrollbar(
+                                  controller: _scrollController,
+                                  child: ListView.separated(
+                                    controller: _scrollController,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                    itemCount: users.length,
+                                    separatorBuilder: (context, index) => const Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                                      child: Divider(
+                                        color: Colors.black12,
+                                        height: 1,
+                                        thickness: 1,
+                                        indent: 72,
+                                      ),
+                                    ),
+                                    itemBuilder: (context, index) {
+                                      final user = users[index];
+                                      final String initials = _getInitials(user['fullName']);
+                                      final bool isOnline = user['isLoggedIn'] == 1;
+                                      final int unreadCount = int.tryParse(user['unreadCount']?.toString() ?? '0') ?? 0;
+                                      final String? profilePictureUrl = user['profilePictureUrl'];
+                                      final String? role = user['role'];
+                                      final String? department = user['department'];
+                                      return _buildUserTile(context, user, initials, isOnline, unreadCount, profilePictureUrl, role, department);
+                                    },
                                   ),
                                 ),
-                                itemBuilder: (context, index) {
-                                  final user = users[index];
-                                  final String initials = user['fullName'] != null && user['fullName'].isNotEmpty
-                                      ? user['fullName'][0].toUpperCase()
-                                      : '?';
-                                  
-                                  final bool isOnline = user['isLoggedIn'] == 1;
-                                  final int unreadCount = int.tryParse(user['unreadCount']?.toString() ?? '0') ?? 0;
-
-                                  return _buildUserTile(context, user, initials, isOnline, unreadCount);
-                                },
                               ),
-                            ),
-                          ),
               ),
             ],
           ),
         ),
       ),
-    );
+  );
+}
+
+  String _getInitials(String? fullName) {
+    if (fullName == null || fullName.isEmpty) return '?';
+    final parts = fullName.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts[0][0].toUpperCase();
   }
 
-  Widget _buildUserTile(BuildContext context, dynamic user, String initials, bool isOnline, int unreadCount) {
-    final isBold = unreadCount > 0;
+  // The buildUserTile method with long-press functionality
+Widget _buildUserTile(BuildContext context, dynamic user, String initials, bool isOnline, int unreadCount, String? profilePictureUrl, String? role, String? department) {
+  final isBold = unreadCount > 0;
 
-    return Container(
+  return GestureDetector( // ✅ Wrap with GestureDetector
+    onLongPress: () {
+      HapticFeedback.lightImpact(); // ✅ Add haptic feedback for long press
+      _showUserProfilePopup(context, user); // ✅ Call the new function
+    },
+    child: Container(
       decoration: BoxDecoration(
         color: unreadCount > 0 ? Colors.blue.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -402,7 +446,6 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
           color: Colors.transparent,
           child: InkWell(
             onTap: () async {
-              // تصفير العداد فوراً عند النقر
               _socketService.clearUnreadCountForSender(user['id'].toString());
               
               final result = await Navigator.push(
@@ -415,7 +458,6 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
                 ),
               );
               
-              // تحديث البيانات عند العودة
               if (result == true && mounted) {
                 await _refreshData();
               }
@@ -424,7 +466,7 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
               child: Row(
                 children: [
-                  _buildUserAvatar(initials, isOnline, unreadCount > 0),
+                  _buildUserAvatar(initials, isOnline, unreadCount > 0, profilePictureUrl),
                   const SizedBox(width: 20),
                   Expanded(
                     child: Column(
@@ -439,6 +481,15 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
                           ),
                         ),
                         const SizedBox(height: 4),
+                        if (role != null && department != null) ...[
+                          Row(
+                            children: [
+                              buildGlassTag(text: '$role - $department'),
+                              const SizedBox(width: 8),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                        ],
                         Row(
                           children: [
                             Container(
@@ -481,6 +532,7 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
               ),
             ),
           ),
+          ),
         ),
       ),
     );
@@ -514,9 +566,35 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildUserAvatar(String initials, bool isOnline, bool hasUnreadMessages) {
+  void _showUserProfilePopup(BuildContext context, Map<String, dynamic> user) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black.withOpacity(0.5),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (BuildContext buildContext, Animation animation, Animation secondaryAnimation) {
+        return UserProfilePopup(user: user);
+      },
+      transitionBuilder: (BuildContext context, Animation<double> a1, Animation<double> a2, Widget child) {
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.8, end: 1.0).animate(a1),
+          child: FadeTransition(
+            opacity: Tween<double>(begin: 0.5, end: 1.0).animate(a1),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  // ✅ New widget to build user avatar with image
+  Widget _buildUserAvatar(String initials, bool isOnline, bool hasUnreadMessages, String? profilePictureUrl) {
     final Color glowColor = isOnline ? Colors.green.shade400 : Colors.red.shade400;
     final Color borderColor = hasUnreadMessages ? Colors.blue.shade400 : Colors.grey.shade300;
+    
+    final bool hasProfilePicture = profilePictureUrl != null && profilePictureUrl.isNotEmpty;
+    final String fullImageUrl = hasProfilePicture ? '${AuthService.baseUrl}$profilePictureUrl' : '';
 
     return Container(
       width: 50,
@@ -544,16 +622,35 @@ class _ChatListPageState extends State<ChatListPage> with WidgetsBindingObserver
             ),
         ],
       ),
-      child: Center(
-        child: Text(
-          initials,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-            color: hasUnreadMessages ? Colors.blue.shade700 : Colors.black87,
-          ),
-        ),
-      ),
+      child: hasProfilePicture
+          ? ClipOval(
+              child: Image.network(
+                fullImageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
+                    child: Text(
+                      initials,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        color: hasUnreadMessages ? Colors.blue.shade700 : Colors.black87,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            )
+          : Center(
+              child: Text(
+                initials,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  color: hasUnreadMessages ? Colors.blue.shade700 : Colors.black87,
+                ),
+              ),
+            ),
     );
   }
 }

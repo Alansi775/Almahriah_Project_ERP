@@ -45,7 +45,7 @@ class _TasksListPageState extends State<TasksListPage> {
     });
 
     try {
-      String url = 'http://192.168.1.67:5050/api/tasks/department';
+      String url = 'http://192.168.1.65:5050/api/tasks/department';
       if (widget.statusFilter != null) {
         url += '?status=${widget.statusFilter}';
       }
@@ -157,7 +157,7 @@ class _TasksListPageState extends State<TasksListPage> {
                 },
               )
             : null,
-        // ✅ Add a refresh button for web only
+        //  Add a refresh button for web only
         actions: kIsWeb
             ? [
                 IconButton(

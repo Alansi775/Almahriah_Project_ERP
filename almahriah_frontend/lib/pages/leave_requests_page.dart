@@ -29,12 +29,12 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
 
   // دالة لجلب طلبات الإجازة المعلقة
    Future<List<dynamic>> _fetchPendingLeaveRequests() async {
-    // ✅ Change the URL based on the user's role
+    //  Change the URL based on the user's role
     String apiUrl;
     if (widget.user.role == 'Manager') {
-      apiUrl = 'http://192.168.1.67:5050/api/admin/manager/leave-requests/pending';
+      apiUrl = 'http://192.168.1.65:5050/api/admin/manager/leave-requests/pending';
     } else {
-      apiUrl = 'http://192.168.1.67:5050/api/admin/leave-requests/pending';
+      apiUrl = 'http://192.168.1.65:5050/api/admin/leave-requests/pending';
     }
     
     final url = Uri.parse(apiUrl);
@@ -55,7 +55,7 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
 
   // دالة لتحديث حالة الطلب
   Future<void> _updateLeaveRequestStatus(int requestId, String status) async {
-    final url = Uri.parse('http://192.168.1.67:5050/api/admin/leave-requests/update-status/$requestId');
+    final url = Uri.parse('http://192.168.1.65:5050/api/admin/leave-requests/update-status/$requestId');
     final response = await http.put(
       url,
       headers: {

@@ -1,4 +1,4 @@
-// almahriah_backend/controllers/chatController.js - النسخة المُحسنة والمُصححة
+// Belqees_backend/controllers/chatController.js - النسخة المُحسنة والمُصححة
 
 const db = require('../services/db');
 const activeUsers = require('../utils/activeUsers'); 
@@ -54,7 +54,7 @@ const registerChatEvents = (socket) => {
             tempId: tempId
         };
         
-        console.log('✅ Message created with reply data:', {
+        console.log(' Message created with reply data:', {
             messageId: messageId,
             hasReply: !!replyToMessageContent,
             replyContent: replyToMessageContent ? replyToMessageContent.substring(0, 20) + '...' : 'none'
@@ -70,7 +70,7 @@ const registerChatEvents = (socket) => {
         const receiverSocketId = activeUsers.get(receiverId.toString());
         if (receiverSocketId) {
             socket.to(receiverSocketId).emit('receiveMessage', messageData);
-            console.log(`✅ Message ${messageId} delivered to user ${receiverId} with reply data`);
+            console.log(` Message ${messageId} delivered to user ${receiverId} with reply data`);
         } else {
             console.log(`📴 User ${receiverId} is offline. Message stored with reply data.`);
         }
@@ -113,7 +113,7 @@ const registerChatEvents = (socket) => {
                         deleteType: 'forEveryone' 
                     });
                     
-                    console.log(`✅ Message ${messageId} deleted for everyone`);
+                    console.log(` Message ${messageId} deleted for everyone`);
                 } else {
                     console.log('❌ Message not found or already deleted');
                 }
@@ -133,7 +133,7 @@ const registerChatEvents = (socket) => {
                         messageId: messageId.toString(), 
                         deleteType: 'forMe' 
                     });
-                    console.log(`✅ Message ${messageId} deleted for user ${currentUserId} only`);
+                    console.log(` Message ${messageId} deleted for user ${currentUserId} only`);
                 }
             });
         }
@@ -173,7 +173,7 @@ const registerChatEvents = (socket) => {
                 
                 // إرسال التحديث للمرسل
                 socket.emit('messageEdited', editedMessageData);
-                console.log(`✅ Message ${messageId} edited successfully`);
+                console.log(` Message ${messageId} edited successfully`);
             }
         });
     });
@@ -199,7 +199,7 @@ const registerChatEvents = (socket) => {
                         status: 'read' 
                     });
                 }
-                console.log(`✅ Message ${messageId} marked as read`);
+                console.log(` Message ${messageId} marked as read`);
             }
         });
     });
@@ -217,7 +217,7 @@ const registerChatEvents = (socket) => {
             }
 
             if (result.affectedRows > 0) {
-                console.log(`✅ Cleared ${result.affectedRows} unread messages`);
+                console.log(` Cleared ${result.affectedRows} unread messages`);
                 
                 // إشعار المرسل بأن رسائله تم قراءتها
                 const senderSocketId = activeUsers.get(senderId.toString());
@@ -297,9 +297,8 @@ const getChatHistory = (req, res) => {
             updatedAt: row.updatedAt 
         }));
         
-        console.log(`✅ Retrieved ${formattedMessages.length} messages for chat between ${senderId} and ${receiverId}`);
+        console.log(` Retrieved ${formattedMessages.length} messages for chat between ${senderId} and ${receiverId}`);
         
-        // طباعة عدد الرسائل التي تحتوي على ردود للتأكد
         const messagesWithReplies = formattedMessages.filter(msg => msg.replyToMessageContent);
         console.log(`📊 Messages with replies: ${messagesWithReplies.length}`);
         
@@ -320,38 +319,40 @@ const deleteAllChats = (req, res) => {
     });
 };
 
-// جلب قائمة المستخدمين مع عداد الرسائل غير المقروءة
+// ✅  جلب قائمة المستخدمين مع عداد الرسائل غير المقروءة - النسخة المُحسنة
 const getChatUsers = (req, res) => {
     const userId = req.user.id;
     
     const sql = `
         SELECT 
-            u.id, 
-            u.fullName, 
-            u.role, 
-            u.department, 
-            u.isLoggedIn,
-            COALESCE(SUM(CASE WHEN m.receiverId = ? AND m.senderId = u.id AND m.readStatus = 0 THEN 1 ELSE 0 END), 0) AS unreadCount
-        FROM users u
-        LEFT JOIN messages m ON u.id = m.senderId
-        WHERE u.id != ?
-        GROUP BY u.id, u.fullName, u.role, u.department, u.isLoggedIn
-        ORDER BY u.fullName
+            id, 
+            fullName, 
+            role, 
+            department, 
+            profilePictureUrl,  
+            isLoggedIn 
+        FROM users 
+        WHERE id != ? AND isActive = 1
+        ORDER BY fullName
     `;
 
-    db.query(sql, [userId, userId], (error, rows) => {
+    db.query(sql, [userId], (error, users) => {
         if (error) {
             console.error('❌ Error getting chat users:', error);
             return res.status(500).json({ message: 'Failed to retrieve users.' });
         }
         
-        const formattedUsers = rows.map(user => {
+        // تحويل البيانات إلى تنسيق مناسب
+        const formattedUsers = users.map(user => {
             const isOnline = activeUsers.has(user.id.toString());
             return {
-                ...user,
                 id: user.id.toString(),
-                unreadCount: parseInt(user.unreadCount || 0),
+                fullName: user.fullName,
+                role: user.role,
+                department: user.department,
+                profilePictureUrl: user.profilePictureUrl, // ✅ إضافة رابط الصورة
                 isLoggedIn: isOnline ? 1 : 0,
+                unreadCount: 0 // تم حذف العداد من هنا وسيتم جلبه بنقطة نهاية منفصلة
             };
         });
 

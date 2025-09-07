@@ -37,7 +37,7 @@ class _GenerateQrPageState extends State<GenerateQrPage> {
   Future<void> _generateTempQrCode() async {
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.1.67:5050/api/auth/generate-temp-qr'),
+        Uri.parse('http://192.168.1.65:5050/api/auth/generate-temp-qr'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -68,14 +68,14 @@ class _GenerateQrPageState extends State<GenerateQrPage> {
       if (!mounted) return;
       try {
         final response = await http.get(
-          Uri.parse('http://192.168.1.67:5050/api/auth/check-qr-session?qrToken=$_qrToken'),
+          Uri.parse('http://192.168.1.65:5050/api/auth/check-qr-session?qrToken=$_qrToken'),
           headers: {'Content-Type': 'application/json'},
         );
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['user'] != null && data['token'] != null) {
-            // ✅ تم تسجيل الدخول!
+            //  تم تسجيل الدخول!
             timer.cancel(); // إيقاف المؤقت
             if (!mounted) return;
 

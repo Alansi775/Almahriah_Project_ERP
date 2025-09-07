@@ -9,12 +9,13 @@ import 'package:almahriah_frontend/pages/employee_dashboard.dart';
 import 'package:almahriah_frontend/pages/hr_dashboard.dart';
 import 'package:almahriah_frontend/pages/manager_dashboard.dart';
 import 'package:almahriah_frontend/pages/login_page.dart';
+import 'package:almahriah_frontend/pages/splash_screen.dart';
 import 'dart:convert';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-
-// ✅ استيراد خدمة المقبس
+import 'package:almahriah_frontend/services/auth_service.dart';
 import 'package:almahriah_frontend/services/socket_service.dart';
+import 'package:flutter/cupertino.dart'; // ✅ تأكد من استيراد هذه المكتبة
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +30,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Almahriah HR System',
+      title: 'Almahriah TV System',
       locale: const Locale('ar', 'EG'),
       supportedLocales: const [
         Locale('en', ''),
@@ -47,7 +48,7 @@ class MyApp extends StatelessWidget {
           Theme.of(context).textTheme,
         ),
       ),
-      home: const AuthWrapper(),
+      home: const SplashScreen(),
     );
   }
 }
@@ -72,31 +73,43 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     final userJson = prefs.getString('user');
+    
+    await Future.delayed(const Duration(milliseconds: 1500)); 
 
     if (token != null && userJson != null) {
       try {
-        final user = User.fromJson(json.decode(userJson), token);
-        
-        // ✅ إضافة الشرط لتهيئة خدمة المقبس
-        SocketService().initialize(user);
-        
-        setState(() {
-          switch (user.role) {
-            case 'Admin':
-              _initialWidget = AdminDashboard(user: user);
-              break;
-            case 'HR':
-              _initialWidget = HrDashboard(user: user);
-              break;
-            case 'Manager':
-              _initialWidget = ManagerDashboard(user: user);
-              break;
-            default:
-              _initialWidget = EmployeeDashboard(user: user);
-              break;
-          }
-        });
+        final isTokenValid = await AuthService.verifyToken(token);
+
+        if (isTokenValid) {
+          final user = User.fromJson(json.decode(userJson), token);
+          SocketService().initialize(user);
+          
+          setState(() {
+            switch (user.role) {
+              case 'Admin':
+                _initialWidget = AdminDashboard(user: user);
+                break;
+              case 'HR':
+                _initialWidget = HrDashboard(user: user);
+                break;
+              case 'Manager':
+                _initialWidget = ManagerDashboard(user: user);
+                break;
+              default:
+                _initialWidget = EmployeeDashboard(user: user);
+                break;
+            }
+          });
+        } else {
+          await prefs.remove('token');
+          await prefs.remove('user');
+          setState(() {
+            _initialWidget = const LoginPage();
+          });
+        }
       } catch (e) {
+        await prefs.remove('token');
+        await prefs.remove('user');
         setState(() {
           _initialWidget = const LoginPage();
         });
@@ -111,9 +124,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_initialWidget == null) {
-      return const Scaffold(
+      return Scaffold( // ❌ تم حذف 'const' من هنا
         body: Center(
-          child: CircularProgressIndicator(color: Colors.blue),
+          child: CupertinoActivityIndicator(radius: 15.0), // ✅ هذا السطر الآن صحيح
         ),
       );
     } else {

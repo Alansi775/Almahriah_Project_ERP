@@ -104,7 +104,7 @@ class _ChatMessageInputState extends State<ChatMessageInput> {
     return Container(
       color: Colors.white,
       padding: EdgeInsets.only(
-        // ✅ زيادة المسافة السفلية على الأيفون
+        //  زيادة المسافة السفلية على الأيفون
         bottom: isWeb ? 10 : MediaQuery.of(context).viewInsets.bottom + 25,
         left: 12,
         right: 12,
@@ -124,7 +124,7 @@ class _ChatMessageInputState extends State<ChatMessageInput> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // ✅ إزالة الشرط لإظهار الأيقونة على الويب
+              //  إزالة الشرط لإظهار الأيقونة على الويب
               Container(
                 margin: const EdgeInsets.only(left: 8, bottom: 2),
                 child: IconButton(
@@ -237,3 +237,4 @@ class _ChatMessageInputState extends State<ChatMessageInput> {
     );
   }
 }
+

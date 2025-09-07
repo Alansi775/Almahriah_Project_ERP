@@ -11,7 +11,7 @@ exports.getManagerDashboardStats = (req, res) => {
             COUNT(*) AS totalTasks,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completedTasks,
             SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS inProgressTasks,
-            -- ✅ تم تعديل هذا السطر من 'not_started' إلى 'pending'
+            --  تم تعديل هذا السطر من 'not_started' إلى 'pending'
             SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS notStartedTasks
         FROM tasks
         WHERE assignedToId IN (
@@ -19,7 +19,7 @@ exports.getManagerDashboardStats = (req, res) => {
         );
     `;
 
-    // ✅ استعلام SQL لجلب إحصائيات الموظفين الخاصة بالقسم
+    //  استعلام SQL لجلب إحصائيات الموظفين الخاصة بالقسم
     const usersStatsSql = `
         SELECT
             COUNT(*) AS totalUsers,

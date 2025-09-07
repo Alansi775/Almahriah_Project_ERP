@@ -18,11 +18,11 @@ Widget buildStatTile(String title, String value, IconData icon, Color color) {
       // استخدام FittedBox لضمان أن المحتوى سيتلاءم مع الحجم
       child: FittedBox(
         fit: BoxFit.scaleDown, // تصغير المحتوى ليتلاءم
-        alignment: Alignment.center, // ✅ تم التعديل: توسيط المحتوى
+        alignment: Alignment.center, //  تم التعديل: توسيط المحتوى
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center, // ✅ تم التعديل: لتوسيط الأيقونة والنص
+            crossAxisAlignment: CrossAxisAlignment.center, //  تم التعديل: لتوسيط الأيقونة والنص
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
@@ -38,7 +38,7 @@ Widget buildStatTile(String title, String value, IconData icon, Color color) {
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
-                textAlign: TextAlign.center, // ✅ تم الإضافة: لتوسيط النص
+                textAlign: TextAlign.center, //  تم الإضافة: لتوسيط النص
               ),
               const SizedBox(height: 5),
               SizedBox(
@@ -52,7 +52,7 @@ Widget buildStatTile(String title, String value, IconData icon, Color color) {
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
-                  textAlign: TextAlign.center, // ✅ تم الإضافة: لتوسيط النص
+                  textAlign: TextAlign.center, //  تم الإضافة: لتوسيط النص
                 ),
               ),
             ],
@@ -84,7 +84,7 @@ Widget buildDrawerItem(
       style: GoogleFonts.almarai(fontWeight: FontWeight.w600),
     ),
     onTap: () {
-      HapticFeedback.heavyImpact(); // ✅ تم إضافة الاهتزاز هنا ليتم تنفيذه دائمًا عند النقر
+      HapticFeedback.heavyImpact(); //  تم إضافة الاهتزاز هنا ليتم تنفيذه دائمًا عند النقر
       if (onTap != null) {
         onTap();
       } else if (page != null) {

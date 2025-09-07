@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const { v4 } = require('uuid'); // new 
 let io; // Variable to hold the Socket.IO instance
 
-// ✅ دالة جديدة لتعيين كائن المقبس
+//  دالة جديدة لتعيين كائن المقبس
 exports.setIoInstance = (socketIo) => {
     io = socketIo;
 };
@@ -34,13 +34,13 @@ exports.login = (req, res) => {
             return res.status(401).json({ message: 'اسم المستخدم أو كلمة المرور غير صحيحة.' });
         }
 
-        // ✅ إضافة هذا السطر لتحديث حالة تسجيل الدخول
+        //  إضافة هذا السطر لتحديث حالة تسجيل الدخول
         const updateLoginStatusSql = 'UPDATE users SET isLoggedIn = 1 WHERE id = ?';
         db.query(updateLoginStatusSql, [user.id], (err, result) => {
             if (err) {
                 console.error('Error updating login status:', err);
             }
-            // ✅ إرسال بث لجميع العملاء عند تسجيل الدخول
+            //  إرسال بث لجميع العملاء عند تسجيل الدخول
             if (io) {
                 io.emit('user-status-changed', { userId: user.id.toString(), status: true });
             }
@@ -75,7 +75,7 @@ exports.logout = (req, res) => {
             return res.status(500).json({ message: 'فشل تسجيل الخروج.' });
         }
         
-        // ✅ إرسال بث لجميع العملاء عند تسجيل الخروج
+        //  إرسال بث لجميع العملاء عند تسجيل الخروج
         if (io) {
             io.emit('user-status-changed', { userId: userId.toString(), status: false });
         }
@@ -180,7 +180,7 @@ exports.loginWithQr = (req, res) => {
     });
 };
 
-// ✅ دالة جديدة لتوليد رمز QR مؤقت لصفحة تسجيل الدخول
+//  دالة جديدة لتوليد رمز QR مؤقت لصفحة تسجيل الدخول
 exports.generateTempQr = (req, res) => {
     const qrToken = v4(); // توليد رمز مؤقت فريد
     const sql = 'INSERT INTO qr_tokens (qrToken) VALUES (?)';
@@ -190,12 +190,12 @@ exports.generateTempQr = (req, res) => {
             console.error('Error storing temporary QR token:', err);
             return res.status(500).json({ message: 'فشل توليد رمز QR مؤقت.' });
         }
-        // ✅ إرسال الرمز المؤقت فقط
+        //  إرسال الرمز المؤقت فقط
         res.status(200).json({ message: 'تم توليد الرمز بنجاح.', qrToken });
     });
 };
 
-// ✅ دالة جديدة لربط الجلسة
+//  دالة جديدة لربط الجلسة
 exports.linkQrSession = (req, res) => {
     const { qrToken } = req.body;
     const userId = req.user.id; // يتم الحصول على الـ userId من رمز التوثيق (JWT)
@@ -215,7 +215,7 @@ exports.linkQrSession = (req, res) => {
     });
 };
 
-// ✅ دالة جديدة للتحقق من حالة الـ QR
+//  دالة جديدة للتحقق من حالة الـ QR
 exports.checkQrSession = (req, res) => {
     const { qrToken } = req.query; // 💡 يتم استقبال الرمز من الـ query
     
@@ -230,7 +230,7 @@ exports.checkQrSession = (req, res) => {
         if (results.length > 0 && results[0].userId) {
             const userId = results[0].userId;
             
-            // ✅ إذا كان الرمز مرتبطًا بمستخدم، قم بإزالة الرمز من الجدول
+            //  إذا كان الرمز مرتبطًا بمستخدم، قم بإزالة الرمز من الجدول
             const deleteSql = 'DELETE FROM qr_tokens WHERE qrToken = ?';
             db.query(deleteSql, [qrToken], (deleteErr, deleteResult) => {
                 if (deleteErr) {
@@ -238,7 +238,7 @@ exports.checkQrSession = (req, res) => {
                 }
             });
             
-            // ✅ الآن، قم باسترجاع بيانات المستخدم لإنشاء رمز JWT جديد
+            //  الآن، قم باسترجاع بيانات المستخدم لإنشاء رمز JWT جديد
             const userQuery = 'SELECT * FROM users WHERE id = ?';
             db.query(userQuery, [userId], (userErr, userResults) => {
                 if (userErr) {
@@ -259,13 +259,13 @@ exports.checkQrSession = (req, res) => {
                 });
             });
         } else {
-            // ✅ لا يوجد مستخدم مرتبط بعد، استمر في الانتظار
+            //  لا يوجد مستخدم مرتبط بعد، استمر في الانتظار
             res.status(200).json({ message: 'في انتظار المسح.' });
         }
     });
 };
 
-// ✅ دالة جديدة لتسجيل الدخول مباشرةً عبر QR
+//  دالة جديدة لتسجيل الدخول مباشرةً عبر QR
 exports.qrLogin = (req, res) => {
     const { qrToken } = req.body;
     

@@ -4,7 +4,62 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="757b09b6-3466-4cc3-8f9e-f8ad8c616a2e" name="Changes" comment="" />
+    <list default="true" id="757b09b6-3466-4cc3-8f9e-f8ad8c616a2e" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/controllers/adminController.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/controllers/adminController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/controllers/aiController.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/controllers/aiController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/controllers/authController.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/controllers/authController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/controllers/chatController.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/controllers/chatController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/controllers/dashboardController.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/controllers/dashboardController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/controllers/taskController.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/controllers/taskController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/routes/adminRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/routes/adminRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/routes/aiRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/routes/aiRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/routes/authRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/routes/authRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/routes/dashboardRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/routes/dashboardRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_backend/routes/taskRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_backend/routes/taskRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/android/build/reports/problems/problems-report.html" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/android/build/reports/problems/problems-report.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/ios/Podfile.lock" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/ios/Podfile.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/ios/Runner/AppDelegate.swift" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/ios/Runner/AppDelegate.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/main.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/models/user.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/models/user.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/add_task_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/add_task_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/add_user_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/add_user_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/admin_dashboard.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/admin_dashboard.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/ai.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/ai.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/chat_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/chat_list_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/chat_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/chat_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/employee_dashboard.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/employee_dashboard.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/generate_qr_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/generate_qr_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/hr_dashboard.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/hr_dashboard.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/leave_calendar_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/leave_calendar_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/leave_history_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/leave_history_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/leave_requests_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/leave_requests_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/login_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/login_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/manage_users_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/manage_users_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/manager_dashboard.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/manager_dashboard.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/qr_scanner_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/qr_scanner_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/submit_leave_request_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/submit_leave_request_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/task_details_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/task_details_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/tasks_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/tasks_list_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/pages/tasks_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/pages/tasks_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/services/auth_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/services/auth_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/services/socket_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/services/socket_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/chat/chat_app_bar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/chat/chat_app_bar.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/chat/chat_message_input.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/chat/chat_message_input.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/dashboard_widgets.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/dashboard_widgets.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/edit_message_dialog.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/edit_message_dialog.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/glassmorphism_widgets.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/glassmorphism_widgets.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/message_options_sheet.dart" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/lib/widgets/message_options_sheet.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/linux/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/linux/flutter/generated_plugin_registrant.cc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/linux/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/linux/flutter/generated_plugins.cmake" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/pubspec.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/pubspec.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/almahriah_frontend/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/almahriah_frontend/windows/flutter/generated_plugins.cmake" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -13,9 +68,12 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 7
-}]]></component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
   <component name="ProjectId" id="31KSA3Gvs6ZqBCHAfayByub52qp" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -29,6 +87,7 @@
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "dart.analysis.tool.window.visible": "false",
+    "git-widget-placeholder": "main",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/safamoqbel/almahriah_app",
     "settings.editor.selected.configurable": "AndroidSdkUpdater",

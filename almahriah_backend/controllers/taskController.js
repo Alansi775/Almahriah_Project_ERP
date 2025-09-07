@@ -63,7 +63,7 @@ exports.getDepartmentTasks = (req, res) => {
 };
 
 // دالة لتحديث حالة المهمة
-// ✅ دالة لتحديث حالة المهمة (النسخة النهائية والمُصححة)
+//  دالة لتحديث حالة المهمة (النسخة النهائية والمُصححة)
 exports.updateTaskStatus = (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -76,7 +76,7 @@ exports.updateTaskStatus = (req, res) => {
 
     let updateField = '';
     
-    // ✅ تحديث الكود ليشمل حالة "الإلغاء"
+    //  تحديث الكود ليشمل حالة "الإلغاء"
     if (status === 'in_progress') {
         updateField = 'inProgressAt';
     } else if (status === 'completed') {
@@ -242,7 +242,7 @@ exports.deleteTask = (req, res) => {
 };
 
 
-// ✅ New function to get tasks for a department with optional status filter
+//  New function to get tasks for a department with optional status filter
 exports.getDepartmentTasks = (req, res) => {
     const departmentName = req.user.department;
     const status = req.query.status;

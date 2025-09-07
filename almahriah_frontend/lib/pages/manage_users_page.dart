@@ -7,7 +7,9 @@ import 'package:almahriah_frontend/models/user.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:almahriah_frontend/pages/login_page.dart';
+import 'package:almahriah_frontend/services/auth_service.dart';
 
 class ManageUsersPage extends StatefulWidget {
   final User user;
@@ -22,12 +24,22 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
   bool isLoading = true;
   String _message = '';
   double _scrollOffset = 0.0;
-  static const platform = MethodChannel('com.almahriah.app/dialog');
+  static const platform = MethodChannel('com.Belqees.app/dialog');
 
   @override
   void initState() {
     super.initState();
     _fetchUsers();
+  }
+
+  // ✅ دالة جديدة لحساب الأحرف الأولى بشكل صحيح
+  String _getInitials(String? fullName) {
+    if (fullName == null || fullName.isEmpty) return '?';
+    final parts = fullName.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return parts[0][0].toUpperCase();
   }
 
   void _handleAuthenticationError() {
@@ -42,7 +54,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
   void _showPlatformMessage(String message, {required bool isSuccess}) async {
     final String title = isSuccess ? 'تمت العملية بنجاح' : 'خطأ!';
     
-    if (Platform.isIOS) {
+    if (kIsWeb || Platform.isIOS) {
       try {
         await platform.invokeMethod('showNativeDialog', {
           'title': title,
@@ -64,9 +76,13 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
 
   Future<void> _fetchUsers() async {
     print('DEBUG: Fetching users...');
+    setState(() {
+      isLoading = true;
+      _message = '';
+    });
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.67:5050/api/admin/users'),
+        Uri.parse('${AuthService.baseUrl}/api/admin/users'), // ✅ استخدام URL من AuthService
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',
@@ -106,7 +122,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
     }
     try {
       final response = await http.put(
-        Uri.parse('http://192.168.1.67:5050/api/admin/users/$userId/toggle-active'),
+        Uri.parse('${AuthService.baseUrl}/api/admin/users/$userId/toggle-active'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',
@@ -128,14 +144,21 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
     }
   }
 
-  Future<void> _deleteUser(int userId) async {
+  Future<void> _deleteUser(int userId, String fullName) async {
     if (userId == 1) {
       _showPlatformMessage('لا يمكن حذف حساب المسؤول الرئيسي.', isSuccess: false);
       return;
     }
+
+    final bool? confirmDelete = await _showDeleteConfirmationDialog(fullName);
+
+    if (confirmDelete != true) {
+      return;
+    }
+
     try {
       final response = await http.delete(
-        Uri.parse('http://192.168.1.67:5050/api/admin/users/$userId'),
+        Uri.parse('${AuthService.baseUrl}/api/admin/users/$userId'),
         headers: {
           'Authorization': 'Bearer ${widget.user.token}',
         },
@@ -157,9 +180,56 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
     }
   }
 
+  // ✅ دالة موحدة لعرض صندوق حوار الحذف
+  Future<bool?> _showDeleteConfirmationDialog(String fullName) async {
+    if (kIsWeb || Platform.isIOS) {
+      return await showCupertinoDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return CupertinoAlertDialog(
+            title: Text('تأكيد الحذف', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
+            content: Text('هل أنت متأكد أنك تريد حذف المستخدم "$fullName"؟', style: GoogleFonts.almarai()),
+            actions: <CupertinoDialogAction>[
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('حذف', style: GoogleFonts.almarai(color: Colors.red)),
+              ),
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('إلغاء', style: GoogleFonts.almarai(color: Colors.blue)),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      // ✅ استخدام AlertDialog لنظام Android
+      return await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('تأكيد الحذف', style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
+            content: Text('هل أنت متأكد أنك تريد حذف المستخدم "$fullName"؟', style: GoogleFonts.almarai()),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('إلغاء', style: GoogleFonts.almarai(color: Colors.blue)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('حذف', style: GoogleFonts.almarai(color: Colors.red)),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,
     ));
@@ -248,11 +318,16 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final user = users[index];
-                      final String initials = user['fullName'] != null && user['fullName'].isNotEmpty
-                          ? (user['fullName'] as String).split(' ').map((s) => s.isNotEmpty ? s[0] : '').join().substring(0, user['fullName'].split(' ').map((s) => s.isNotEmpty ? s[0] : '').join().length > 1 ? 2 : 1).toUpperCase()
-                          : (user['username'] as String).substring(0, 2).toUpperCase();
+                      // ✅ استخدام الدالة الجديدة لحساب الأحرف الأولى
+                      final String initials = _getInitials(user['fullName']);
                       
                       final bool isMainAdmin = user['id'] == 1;
+                      
+                      // ✅ بناء رابط الصورة الكامل
+                      final String? profilePictureUrl = user['profilePictureUrl'];
+                      final String? fullImageUrl = profilePictureUrl != null && profilePictureUrl.isNotEmpty
+                          ? '${AuthService.baseUrl}$profilePictureUrl'
+                          : null;
               
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -274,11 +349,14 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                                 leading: CircleAvatar(
                                   backgroundColor: user['isActive'] == 1 ? Colors.green.shade400 : Colors.red.shade400,
                                   radius: 25,
-                                  child: Text(
-                                    initials,
-                                    style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                                  ),
-                                ),
+                                  backgroundImage: fullImageUrl != null ? NetworkImage(fullImageUrl) : null,
+                                  child: fullImageUrl == null
+                                      ? Text(
+                                          initials,
+                                          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                                        )
+                                      : null,
+                                ),       
                                 title: Text(
                                   user['fullName'] ?? user['username'],
                                   style: GoogleFonts.almarai(fontWeight: FontWeight.w600, color: Colors.black87),
@@ -295,7 +373,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                                       IconButton(
                                         icon: const Icon(Icons.delete_forever, color: Colors.red),
                                         onPressed: () {
-                                          _deleteUser(user['id']);
+                                          _deleteUser(user['id'], user['fullName']);
                                         },
                                       ),
                                     // Toggle Active Status Switch

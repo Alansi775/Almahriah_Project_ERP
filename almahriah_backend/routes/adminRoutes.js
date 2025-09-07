@@ -11,6 +11,7 @@ router.use(authMiddleware.verifyToken);
 // User Management Routes (Admin only)
 router.post('/users', authMiddleware.verifyRole(['Admin']), adminController.createUser);
 router.get('/users', authMiddleware.verifyRole(['Admin']), adminController.getUsers);
+router.get('/users/:id', adminController.getUser); // for admin profile image 
 router.put('/users/:id/toggle-active', authMiddleware.verifyRole(['Admin']), adminController.toggleUserActiveStatus);
 router.delete('/users/:id', authMiddleware.verifyRole(['Admin']), adminController.deleteUser);
 
@@ -32,7 +33,15 @@ router.get('/leave-requests/all', authMiddleware.verifyRole(['Admin', 'HR']), ad
 // Department Routes (Admin only)
 router.get('/departments', authMiddleware.verifyRole(['Admin']), adminController.getUniqueDepartments);
 
-// ✅ Manager Leave Requests
+//  Manager Leave Requests
 router.get('/manager/leave-requests/pending', authMiddleware.verifyRole(['Manager']), adminController.getManagerPendingLeaveRequests);
+
+// admin profile picture upload route
+router.post('/profile/upload', authMiddleware.verifyRole(['Admin', 'Manager', 'HR', 'Employee']), adminController.uploadProfilePicture);
+
+
+// admin profile picture delete route
+router.delete('/profile/delete', authMiddleware.verifyRole(['Admin', 'Manager', 'HR', 'Employee']), adminController.deleteProfilePicture);
+
 
 module.exports = router;

@@ -1,4 +1,4 @@
-// ✅ Replace the entire content of your tasks_page.dart file with this code.
+//  Replace the entire content of your tasks_page.dart file with this code.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,7 +13,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-// ✅ Define the MethodChannel to communicate with native iOS code
+//  Define the MethodChannel to communicate with native iOS code
 const platform = MethodChannel('com.almahriah.app/dialog');
 
 class TasksPage extends StatefulWidget {
@@ -35,7 +35,7 @@ class _TasksPageState extends State<TasksPage> {
     _refreshData(); // Call refresh on init to load data
   }
 
-  // ✅ New method to call native iOS alerts
+  //  New method to call native iOS alerts
   void _showNativeAlert({required String title, required String message}) async {
     if (!kIsWeb) {
       if (Platform.isIOS) {
@@ -48,7 +48,7 @@ class _TasksPageState extends State<TasksPage> {
     }
   }
 
-  // ✅ New method to call native iOS toasts
+  //  New method to call native iOS toasts
   void _showNativeToast({required String message}) async {
     if (!kIsWeb) {
       if (Platform.isIOS) {
@@ -65,7 +65,7 @@ class _TasksPageState extends State<TasksPage> {
     }
   }
 
-  // ✅ Updated function to handle confirmation dialogs based on platform
+  //  Updated function to handle confirmation dialogs based on platform
   Future<bool?> _showConfirmationDialog({
     required String title,
     required String content,
@@ -105,7 +105,7 @@ class _TasksPageState extends State<TasksPage> {
     }
   }
 
-  // ✅ Re-implementing the message display to use the native channel for iOS
+  //  Re-implementing the message display to use the native channel for iOS
   void _showMessage({
     required String message,
     required bool isSuccess,
@@ -117,7 +117,7 @@ class _TasksPageState extends State<TasksPage> {
         _showNativeAlert(title: 'خطأ', message: message);
       }
     } else {
-      // ✅ Use a standard snackbar for Android/Web
+      //  Use a standard snackbar for Android/Web
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message, style: GoogleFonts.almarai()),
@@ -129,7 +129,7 @@ class _TasksPageState extends State<TasksPage> {
 
   Future<List<dynamic>> _fetchDepartments() async {
     final response = await http.get(
-      Uri.parse('http://192.168.1.67:5050/api/admin/departments'),
+      Uri.parse('http://192.168.1.65:5050/api/admin/departments'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${widget.user.token}',
@@ -146,11 +146,11 @@ class _TasksPageState extends State<TasksPage> {
     String apiUrl;
     if (widget.user.role == 'Admin') {
       if (department == null) return [];
-      apiUrl = 'http://192.168.1.67:5050/api/tasks/by-department?department=$department';
+      apiUrl = 'http://192.168.1.65:5050/api/tasks/by-department?department=$department';
     } else if (widget.user.role == 'Manager') {
-      apiUrl = 'http://192.168.1.67:5050/api/tasks/by-department?department=${widget.user.department}';
+      apiUrl = 'http://192.168.1.65:5050/api/tasks/by-department?department=${widget.user.department}';
     } else {
-      apiUrl = 'http://192.168.1.67:5050/api/tasks/by-user';
+      apiUrl = 'http://192.168.1.65:5050/api/tasks/by-user';
     }
 
     final response = await http.get(
@@ -193,7 +193,7 @@ class _TasksPageState extends State<TasksPage> {
     }
 
     try {
-      final url = Uri.parse('http://192.168.1.67:5050/api/tasks/by-department?department=${widget.user.department}');
+      final url = Uri.parse('http://192.168.1.65:5050/api/tasks/by-department?department=${widget.user.department}');
       final response = await http.delete(
         url,
         headers: {
@@ -238,7 +238,7 @@ class _TasksPageState extends State<TasksPage> {
     }
 
     try {
-      final url = Uri.parse('http://192.168.1.67:5050/api/tasks/$taskId');
+      final url = Uri.parse('http://192.168.1.65:5050/api/tasks/$taskId');
       final response = await http.delete(
         url,
         headers: {

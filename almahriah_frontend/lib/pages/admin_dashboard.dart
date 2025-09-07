@@ -1,3 +1,4 @@
+// هذا هو الكود الكامل لملف admin_dashboard.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -12,6 +13,8 @@ import 'package:almahriah_frontend/custom_page_route.dart';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show kIsWeb; 
+import 'dart:io' show Platform;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'add_user_page.dart';
 import 'manage_users_page.dart';
@@ -20,8 +23,9 @@ import 'tasks_page.dart';
 import 'tasks_list_page.dart'; 
 import 'package:almahriah_frontend/pages/ai.dart';
 import 'package:almahriah_frontend/widgets/animated_ai_button.dart';
-// ✅ استيراد صفحة المحادثات
 import 'chat_list_page.dart'; 
+import 'package:almahriah_frontend/pages/image_picker_page.dart';
+import 'package:almahriah_frontend/services/profile_utils.dart';
 
 class AdminDashboard extends StatefulWidget {
   final User user;
@@ -36,37 +40,80 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic> _stats = {};
   bool _isLoading = true;
   double _scrollOffset = 0.0;
+  String? _currentProfilePictureUrl; // ✅ متغير منفصل لصورة الملف الشخصي
+
+  static const platform = MethodChannel('com.almahriah.app/dialog');
 
   @override
   void initState() {
     super.initState();
+    _currentProfilePictureUrl = widget.user.profilePictureUrl; // ✅ تهيئة الصورة
     _fetchDashboardStats();
   }
 
+  void _showAlert(String title, String message) {
+    if (kIsWeb || (!kIsWeb && Platform.isAndroid)) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return CupertinoAlertDialog(
+            title: Text(title, style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
+            content: Text(message, style: GoogleFonts.almarai()),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('موافق', style: TextStyle(color: CupertinoColors.activeBlue)),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } else if (!kIsWeb && Platform.isIOS) {
+      try {
+        platform.invokeMethod('showAlert', {
+          'title': title,
+          'message': message,
+        });
+      } on PlatformException catch (e) {
+        print("Failed to show native alert: '${e.message}'.");
+      }
+    }
+  }
+
   Future<void> _fetchDashboardStats() async {
+    setState(() {
+      _isLoading = true;
+    });
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.67:5050/api/admin/dashboard-stats'),
+        Uri.parse('http://192.168.1.65:5050/api/admin/dashboard-stats'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',
         },
       );
       if (response.statusCode == 200) {
+        if (!mounted) return;
         setState(() {
           _stats = json.decode(response.body);
           _isLoading = false;
         });
+        
+        // ✅ تحديث صورة المستخدم من الخادم
+        await _updateUserProfilePicture();
+        
         HapticFeedback.lightImpact();
+      } else if(response.statusCode == 401 || response.statusCode == 403) {
+        if (!mounted) return;
+        _showAlert('انتهت صلاحية الجلسة', 'الرجاء تسجيل الدخول مرة أخرى.');
+        AuthService.logout(context, widget.user.id);
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              json.decode(response.body)['message'] ?? 'فشل تحميل إحصائيات لوحة التحكم',
-              style: GoogleFonts.almarai(),
-            ),
-          ),
+        _showAlert(
+          'خطأ',
+          json.decode(response.body)['message'] ?? 'فشل تحميل إحصائيات لوحة التحكم',
         );
         setState(() {
           _isLoading = false;
@@ -74,14 +121,36 @@ class _AdminDashboardState extends State<AdminDashboard> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ في الاتصال بالخادم: $e', style: GoogleFonts.almarai()),
-        ),
-      );
+      _showAlert('خطأ في الاتصال', 'حدث خطأ في الاتصال بالخادم: $e');
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  // ✅ دالة لتحديث صورة المستخدم من الخادم
+  Future<void> _updateUserProfilePicture() async {
+    try {
+      final userResponse = await http.get(
+        Uri.parse('http://192.168.1.65:5050/api/admin/users/${widget.user.id}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.user.token}',
+        },
+      );
+
+      if (userResponse.statusCode == 200) {
+        final userData = json.decode(userResponse.body);
+        if (mounted) {
+          setState(() {
+            _currentProfilePictureUrl = userData['profilePictureUrl'] != null 
+              ? 'http://192.168.1.65:5050${userData['profilePictureUrl']}'
+              : null;
+          });
+        }
+      }
+    } catch (e) {
+      print('خطأ في تحديث صورة المستخدم: $e');
     }
   }
 
@@ -143,6 +212,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         : 'AA';
 
     final bool isScrolled = _scrollOffset > 0;
+    final bool isIOS = !kIsWeb && Platform.isIOS;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -159,15 +229,81 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        backgroundColor: const Color(0xFFE5E7EB),
-                        radius: 30,
-                        child: Text(
-                          initials,
-                          style: GoogleFonts.poppins(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade800,
+                      // ✅ تم استبدال CircleAvatar القديم بهذا الكود
+                      GestureDetector(
+                        onTap: () async {
+                          // استخدام ImagePickerPage
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ImagePickerPage(user: widget.user),
+                            ),
+                          );
+                          
+                          if (result == true) {
+                            // إعادة قراءة بيانات المستخدم المحدثة من SharedPreferences
+                            final prefs = await SharedPreferences.getInstance();
+                            final userJson = prefs.getString('user');
+                            if (userJson != null && mounted) {
+                              final userData = json.decode(userJson);
+                              if (userData['profilePictureUrl'] != null) {
+                                setState(() {
+                                  _currentProfilePictureUrl = userData['profilePictureUrl'];
+                                });
+                              }
+                            }
+                            await _fetchDashboardStats();
+                            _showAlert('نجاح', 'تم تحديث صورة الملف الشخصي.');
+                          }
+                        },
+                        onLongPress: () async {
+                          // يستدعي دالة حذف الصورة من ملف profile_utils
+                          await handleProfileImageDelete(context, widget.user);
+                          await _fetchDashboardStats();
+                        },
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: const Color(0xFFE5E7EB),
+                                radius: 30,
+                                backgroundImage: _currentProfilePictureUrl != null
+                                    ? NetworkImage(_currentProfilePictureUrl!)
+                                    : null,
+                                child: _currentProfilePictureUrl == null
+                                    ? Text(
+                                        initials,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade800,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              Positioned(
+                                bottom: -2,
+                                right: -2,
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade600,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -188,7 +324,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                 ),
               ),
-              // ✅ إضافة أيقونة المحادثة في قائمة المدير
               ListTile(
                   leading: const Icon(CupertinoIcons.chat_bubble_2, color: Colors.blueAccent),
                   title: Text('المحادثات', style: GoogleFonts.almarai()),
@@ -285,7 +420,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         },
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: isIOS
+                  ? const CupertinoActivityIndicator(radius: 20)
+                  : const CircularProgressIndicator(),
+            )
           : NotificationListener<ScrollUpdateNotification>(
               onNotification: (ScrollUpdateNotification notification) {
                 setState(() {
@@ -325,10 +464,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     title: Image.asset('assets/logo.png', height: 35),
                     centerTitle: true,
                     actions: [
-                      if (kIsWeb)
+                      if (kIsWeb || !kIsWeb && Platform.isAndroid)
                         IconButton(
                           icon: const Icon(Icons.refresh, color: Colors.black),
                           onPressed: _fetchDashboardStats,
+                        ),
+                      if (isIOS)
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: _fetchDashboardStats,
+                          child: const Icon(Icons.refresh, color: Colors.black),
                         ),
                       IconButton(
                         icon: const Icon(Icons.notifications_none, color: Colors.black),
@@ -359,7 +504,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     child: Center(
                       child: kIsWeb
                           ? ConstrainedBox(
-                              constraints: BoxConstraints(
+                              constraints: const BoxConstraints(
                                 maxWidth: 1000,
                               ),
                               child: _buildDashboardContent(),
@@ -411,19 +556,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 children: [
                   buildStatTile(
                     'إجمالي المستخدمين',
-                    _stats['totalUsers'].toString(),
+                    _stats['totalUsers']?.toString() ?? '0',
                     Icons.group_outlined,
                     Colors.blue.shade400,
                   ),
                   buildStatTile(
                     'مستخدمون نشطون',
-                    _stats['activeUsers'].toString(),
+                    _stats['activeUsers']?.toString() ?? '0',
                     Icons.person_pin_circle_outlined,
                     Colors.green.shade400,
                   ),
                   buildStatTile(
                     'مدراء النظام',
-                    _stats['admins'].toString(),
+                    _stats['admins']?.toString() ?? '0',
                     Icons.verified_user_outlined,
                     Colors.orange.shade400,
                   ),

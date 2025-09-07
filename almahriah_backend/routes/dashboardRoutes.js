@@ -9,7 +9,7 @@ const auth = require('../middleware/authMiddleware');
 router.get('/manager/dashboard-stats', auth.verifyToken, auth.isManager, dashboardController.getManagerDashboardStats);
 
 // وقم بتغيير السطر الثاني
-// ✅ قم بتبديل دالة "auth.isAdmin" بدالة "auth.isManager" مؤقتًا للتأكد من أنها تعمل
+//  قم بتبديل دالة "auth.isAdmin" بدالة "auth.isManager" مؤقتًا للتأكد من أنها تعمل
 router.get('/admin/dashboard-stats', auth.verifyToken, auth.isManager, dashboardController.getAdminDashboardStats);
 
 module.exports = router;

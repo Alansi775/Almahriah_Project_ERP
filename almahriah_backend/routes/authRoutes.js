@@ -12,16 +12,16 @@ router.post('/logout', authController.logout);
 router.post('/generate-qr-token', authMiddleware.verifyToken, authController.generateQrToken);
 router.post('/login-with-qr', authController.loginWithQr);
 
-// ✅ المسار الجديد لتوليد رمز QR مؤقت (لا يتطلب توثيق)
+//  المسار الجديد لتوليد رمز QR مؤقت (لا يتطلب توثيق)
 router.post('/generate-temp-qr', authController.generateTempQr);
 
-// ✅ المسار الجديد لربط الجلسة (يتطلب توثيق من الهاتف)
+//  المسار الجديد لربط الجلسة (يتطلب توثيق من الهاتف)
 router.post('/link-qr-session', authMiddleware.verifyToken, authController.linkQrSession);
 
-// ✅ المسار الجديد للتحقق من حالة الـ QR
+//  المسار الجديد للتحقق من حالة الـ QR
 router.get('/check-qr-session', authController.checkQrSession);
 
-// ✅ مسار جديد لتسجيل الدخول مباشرةً من رمز QR
+//  مسار جديد لتسجيل الدخول مباشرةً من رمز QR
 router.post('/qr-login', authController.qrLogin);
 
 

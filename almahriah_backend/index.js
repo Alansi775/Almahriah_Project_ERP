@@ -5,7 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
-const path = require('path');
+const path = require('path'); // ✅ تأكد من وجود هذا السطر
 const db = require('./services/db');
 
 // استيراد المسارات
@@ -24,7 +24,7 @@ const authController = require('./controllers/authController');
 
 const app = express();
 const PORT = 5050;
-const HOST = '192.168.1.67';
+const HOST = '192.168.1.65';
 
 // ================== تهيئة خادم HTTP و Socket.IO ==================
 
@@ -37,10 +37,10 @@ const io = new socketIo.Server(server, {
     }
 });
 
-// ✅ تمرير كائن المقبس الرئيسي (io) إلى authController
+//  تمرير كائن المقبس الرئيسي (io) إلى authController
 authController.setIoInstance(io);
 
-// ✅ ربط متحكم المحادثة بحدث الاتصال
+//  ربط متحكم المحادثة بحدث الاتصال
 io.on('connection', chatController.registerChatEvents);
 
 // ================== نهاية تهيئة Socket.IO ==================
@@ -49,6 +49,9 @@ io.on('connection', chatController.registerChatEvents);
 // استخدام Middleware
 app.use(cors());
 app.use(express.json());
+
+// ✅ إضافة هذا السطر لعرض مجلد الصور كملفات ثابتة
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // اختبار الاتصال بقاعدة البيانات
 db.getConnection((err, connection) => {

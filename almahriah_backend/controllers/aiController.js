@@ -11,7 +11,7 @@ const connection = require('mysql2/promise').createPool({
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ✅ تغيير مهم: حفظ الجلسات لكل مستخدم
+//  تغيير مهم: حفظ الجلسات لكل مستخدم
 const userSessions = {};
 
 // Helper function to get tasks based on user role
@@ -146,7 +146,7 @@ function formatHistoryForGemini(history) {
     }).filter(message => message.parts[0].text);
 }
 
-// ✅ Helper function to create tasks directly in database (النسخة المُصححة)
+//  Helper function to create tasks directly in database (النسخة المُصححة)
 async function createTasks(tasks, assignedById, assignedToId) {
     const results = [];
     
@@ -193,7 +193,7 @@ async function createTasks(tasks, assignedById, assignedToId) {
                 taskId: result.insertId
             });
 
-            console.log(`✅ Task created successfully: ${task.title} for user ${assignedToId} by ${assignedById}`);
+            console.log(` Task created successfully: ${task.title} for user ${assignedToId} by ${assignedById}`);
             
         } catch (error) {
             console.error('Failed to create task in database:', error);
@@ -206,7 +206,7 @@ async function createTasks(tasks, assignedById, assignedToId) {
     return results;
 }
 
-// ✅ دالة مساعدة لتوليد المهام من Gemini (محسنة مع فهم السياق)
+//  دالة مساعدة لتوليد المهام من Gemini (محسنة مع فهم السياق)
 async function generateTasksFromGemini(prompt, employeeName, employeeDepartment, employeeExistingTasks) {
     // إنشاء ملخص للمهام الموجودة
     let existingTasksContext = '';
@@ -292,7 +292,7 @@ async function generateTasksFromGemini(prompt, employeeName, employeeDepartment,
     }
 }
 
-// ✅ دالة مساعدة لعرض المهام المقترحة للمستخدم (محسنة)
+//  دالة مساعدة لعرض المهام المقترحة للمستخدم (محسنة)
 function formatSuggestedTasksMessage(tasks, employeeName) {
     let responseMessage = `تم إنشاء المهام التالية لـ ${employeeName}. هل توافق على إرسالها؟\n\n`;
     
@@ -320,11 +320,11 @@ exports.handleChat = async (req, res) => {
 
         const { prompt, history } = req.body;
 
-        // ✅ إدارة جلسات المستخدمين
+        //  إدارة جلسات المستخدمين
         const userSession = userSessions[userId] || { pendingTasks: null, targetEmployee: null, waitingForApproval: false };
         userSessions[userId] = userSession;
 
-        // ✅ معالجة حالة انتظار الموافقة (بدون Gemini)
+        //  معالجة حالة انتظار الموافقة (بدون Gemini)
         if (userSession.waitingForApproval) {
             const approvalPattern = /(موافق|تمام|أوافق|نعم|أرسل|نفذ|أرسلها)/i;
             const modifyPattern = /(تعديل|عدل|تغيير|غير)/i;
@@ -368,7 +368,7 @@ exports.handleChat = async (req, res) => {
                         [userSession.targetEmployee?.id || 0, userId]
                     );
                     const todayTasksCount = verifyRows[0].taskCount;
-                    successMessage += `\n✅ تأكيد: يوجد ${todayTasksCount} مهمة مُرسلة اليوم لهذا الموظف`;
+                    successMessage += `\n تأكيد: يوجد ${todayTasksCount} مهمة مُرسلة اليوم لهذا الموظف`;
                 } catch (verifyError) {
                     console.error('Error verifying tasks:', verifyError);
                 }
@@ -427,16 +427,22 @@ exports.handleChat = async (req, res) => {
             }
         }
 
-        // ✅ معالجة طلبات المطورين
-        const developerPromptPattern = /(تطوير|طور|تدريب|درب|انشاء|أنشأ|صناعة|صنع|من صنعك|من طورك)/;
+        //  معالجة طلبات المطورين
+        const developerPromptPattern = /(تطوير|طور|تدريب|درب|أنشأ|صناعة|صنع|من صنعك|من طورك)/;
         if (developerPromptPattern.test(prompt)) {
             const predefinedResponse = 'تم تطويري بواسطة محمد العنسي، وهو مطور برمجيات في الذكاء الاصطناعي بجامعة اسطنبول أيدن. هو شخص شغوف بالتكنولوجيا والذكاء الاصطناعي، وقام بتطويري لأعمل في نظام قناة المهرية وأساعد الموظفين والمدراء في أداء مهامهم اليومية. أنا هنا لخدمتكم في أي وقت.';
             return res.json({ message: predefinedResponse });
         }
 
-        // ✅ معالجة طلبات إنشاء المهام للمدراء (محسنة)
+        //  معالجة طلبات إنشاء المهام للمدراء (محسنة)
         if (userRole === 'Manager') {
-            const createTaskPattern = /(أنشئ مهام|إنشاء مهام|أضف مهام|سوي مهام|مهام جديدة|توليد مهام).*(لـ|ل|للموظف)\s+([^\s]+)(\s+[^\s]+)?/i;
+            // this is the main one 
+            const createTaskPattern = /(ممكن تنشئ مهام|اعطي مهام|اكتب مهام|أنشئ مهام|انشاء مهام|أضف مهام|سوي مهام|مهام جديدة|توليد مهام).*(لـ|ل|للموظف)\s+([^\s]+)(\s+[^\s]+)?/i;
+            //// end of the main one 
+
+            // new one only fot test
+           // const createTaskPattern = /(ممكن|أريد|أبي|يا ذكي|يا كهلان|لو سمحت|بليز)?\s*(تنشيء|أنشيء|أعطي|اكتب|سوي|أعمل|تخصيص|اسناد|طلب|أضف|جديد|توليد|عط|سو|أرسل|كلف|أسند)?\s*(لي|ل|للموظف)?\s*(مهام|أعمال|واجبات|تكاليف|أشياء|شغل)?\s*(جديدة|خاصة|مهمة)?\s*(لـ|ل|للموظف)?\s+([^\s]+)(\s+[^\s]+)?/i;
+            // end of the new one only fot test 
             const match = prompt.match(createTaskPattern);
 
             if (match) {
@@ -500,7 +506,7 @@ exports.handleChat = async (req, res) => {
             }
         }
 
-        // ✅ الاستعلامات العادية (مع Gemini)
+        //  الاستعلامات العادية (مع Gemini)
         const systemPrompt = `أنت مساعد ذكي اسمك "كهلان" ومخصص للموظفين والمدراء في قناة المهرية الفضائية.
         - معلومات المستخدم الحالي:
         - الاسم: ${userName || 'غير محدد'}

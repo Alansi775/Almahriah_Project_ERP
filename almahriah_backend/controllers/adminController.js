@@ -33,13 +33,30 @@ exports.createUser = (req, res) => {
 
 // Function to get all users
 exports.getUsers = (req, res) => {
-    const sql = 'SELECT id, username, department, role, fullName, isActive FROM users';
+    // ✅ تم إضافة profilePictureUrl إلى الاستعلام
+    const sql = 'SELECT id, username, department, role, fullName, isActive, profilePictureUrl FROM users';
     db.query(sql, (err, results) => {
         if (err) {
             console.error('Database error:', err);
             return res.status(500).json({ message: 'فشل جلب المستخدمين', error: err.message });
         }
         res.status(200).json(results);
+    });
+};
+
+// Function to get a specific user by ID
+exports.getUser = (req, res) => {
+    const userId = req.params.id;
+    const sql = 'SELECT id, username, department, role, fullName, isActive, profilePictureUrl FROM users WHERE id = ?';
+    db.query(sql, [userId], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ message: 'فشل جلب بيانات المستخدم' });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'المستخدم غير موجود' });
+        }
+        res.status(200).json(results[0]);
     });
 };
 
@@ -62,49 +79,35 @@ exports.toggleUserActiveStatus = (req, res) => {
 };
 
 // Function to delete a user
+// Function to delete a user
 exports.deleteUser = (req, res) => {
   const userId = req.params.id;
 
-  if (userId == 1) {
+  // Ensure the user ID is a number for a strict comparison
+  const userIdAsInt = parseInt(userId, 10);
+
+  // Check if the user ID is exactly 1 (the main admin)
+  if (userIdAsInt === 1) {
     return res.status(403).json({ message: 'لا يمكن حذف حساب المسؤول الرئيسي.' });
   }
 
   // Use a transaction for safety
   db.beginTransaction(err => {
+    // If an error occurs during the transaction start
     if (err) {
       return res.status(500).json({ message: 'فشل بدء عملية الحذف.', error: err.message });
     }
 
-    // Step 1: Check for the sessions table before deleting
-    const checkTableSql = 'SHOW TABLES LIKE "sessions"';
-    db.query(checkTableSql, (err, tables) => {
+    // Step 1: Delete from the sessions table
+    const deleteSessionsSql = 'DELETE FROM sessions WHERE userId = ?';
+    db.query(deleteSessionsSql, [userId], (err, result) => {
       if (err) {
         return db.rollback(() => {
-          return res.status(500).json({ message: 'فشل التحقق من جدول الجلسات.', error: err.message });
+          return res.status(500).json({ message: 'حدث خطأ أثناء حذف الجلسات المرتبطة.', error: err.message });
         });
       }
 
-      // If the sessions table exists, delete from it
-      if (tables.length > 0) {
-        const deleteSessionsSql = 'DELETE FROM sessions WHERE userId = ?';
-        db.query(deleteSessionsSql, [userId], (err, result) => {
-          if (err) {
-            return db.rollback(() => {
-              return res.status(500).json({ message: 'حدث خطأ أثناء حذف الجلسات المرتبطة.', error: err.message });
-            });
-          }
-          // Continue to the next step
-          deleteFromUsersTable();
-        });
-      } else {
-        // If sessions table does not exist, skip this step
-        console.warn('Warning: sessions table not found. Skipping session deletion.');
-        deleteFromUsersTable();
-      }
-    });
-
-    // Step 2: Delete from the users table (this is a nested function)
-    function deleteFromUsersTable() {
+      // Step 2: Delete from the users table (only if Step 1 was successful)
       const deleteUserSql = 'DELETE FROM users WHERE id = ?';
       db.query(deleteUserSql, [userId], (err, result) => {
         if (err) {
@@ -129,10 +132,9 @@ exports.deleteUser = (req, res) => {
           res.status(200).json({ message: 'تم حذف المستخدم بنجاح.' });
         });
       });
-    }
+    });
   });
 };
-
 
 // Function to get dashboard statistics
 exports.getDashboardStats = (req, res) => {
@@ -180,7 +182,7 @@ exports.createLeaveRequest = (req, res) => {
 };
 
 
-// ✅ Function to get pending leave requests for a specific department (for managers)
+//  Function to get pending leave requests for a specific department (for managers)
 exports.getManagerPendingLeaveRequests = (req, res) => {
     // The department is passed from the auth middleware
     const managerDepartment = req.user.department; 
@@ -202,7 +204,7 @@ exports.getManagerPendingLeaveRequests = (req, res) => {
     });
 };
 
-// ✅ Add this function back
+//  Add this function back
 exports.getPendingLeaveRequests = (req, res) => {
     const query = `
         SELECT lr.*, u.fullName, u.department, u.role
@@ -337,3 +339,131 @@ exports.getUniqueDepartments = (req, res) => {
         res.status(200).json(results);
     });
 };
+
+
+// Function to update user profile picture URL
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// إعداد التخزين
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadPath = './uploads/profiles/';
+        // إنشاء المجلد إذا لم يكن موجوداً
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        // اسم الملف: user_id_timestamp.extension
+        const userId = req.user.id;
+        const timestamp = Date.now();
+        const extension = path.extname(file.originalname);
+        cb(null, `user_${userId}_${timestamp}${extension}`);
+    }
+});
+
+// فلتر للصور فقط
+const fileFilter = (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(new Error('يُسمح برفع الصور فقط'), false);
+    }
+};
+
+// إعداد multer
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB حد أقصى
+    },
+    fileFilter: fileFilter
+});
+
+// دالة رفع صورة الملف الشخصي
+exports.uploadProfilePicture = (req, res) => {
+    upload.single('profilePicture')(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({ message: 'حجم الملف كبير جداً (الحد الأقصى 5MB)' });
+            }
+            return res.status(400).json({ message: 'خطأ في رفع الملف: ' + err.message });
+        } else if (err) {
+            return res.status(400).json({ message: err.message });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'لم يتم اختيار ملف' });
+        }
+
+        const userId = req.user.id;
+        const profilePictureUrl = `/uploads/profiles/${req.file.filename}`;
+
+        // تحديث قاعدة البيانات
+        const sql = 'UPDATE users SET profilePictureUrl = ? WHERE id = ?';
+        db.query(sql, [profilePictureUrl, userId], (err, result) => {
+            if (err) {
+                console.error('Database error:', err);
+                // حذف الملف في حالة فشل قاعدة البيانات
+                fs.unlinkSync(req.file.path);
+                return res.status(500).json({ message: 'فشل تحديث قاعدة البيانات' });
+            }
+
+            if (result.affectedRows === 0) {
+                fs.unlinkSync(req.file.path);
+                return res.status(404).json({ message: 'المستخدم غير موجود' });
+            }
+
+            res.status(200).json({ 
+                message: 'تم رفع الصورة بنجاح',
+                profilePictureUrl: profilePictureUrl 
+            });
+        });
+    });
+};
+
+// دالة حذف صورة الملف الشخصي
+exports.deleteProfilePicture = (req, res) => {
+    const userId = req.user.id;
+
+    // الحصول على رابط الصورة الحالية
+    const getSql = 'SELECT profilePictureUrl FROM users WHERE id = ?';
+    db.query(getSql, [userId], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ message: 'خطأ في قاعدة البيانات' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'المستخدم غير موجود' });
+        }
+
+        const currentPictureUrl = results[0].profilePictureUrl;
+
+        // تحديث قاعدة البيانات (حذف الرابط)
+        const updateSql = 'UPDATE users SET profilePictureUrl = NULL WHERE id = ?';
+        db.query(updateSql, [userId], (err, result) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({ message: 'فشل حذف الصورة من قاعدة البيانات' });
+            }
+
+            // حذف الملف من النظام
+            if (currentPictureUrl) {
+                const filePath = path.join(__dirname, '..', currentPictureUrl);
+                fs.unlink(filePath, (err) => {
+                    if (err) {
+                        console.log('تعذر حذف الملف:', err.message);
+                    }
+                });
+            }
+
+            res.status(200).json({ message: 'تم حذف الصورة بنجاح' });
+        });
+    });
+};
+
+/// end of user profile picture functions ///////////////////////////////

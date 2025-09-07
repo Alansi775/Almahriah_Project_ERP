@@ -87,7 +87,7 @@ class MessageOptionsSheet extends StatelessWidget {
     );
   }
 
-  // ✅ NEW METHOD to handle the long press and show the sheet
+  //  NEW METHOD to handle the long press and show the sheet
   static void showForMessage({
     required BuildContext context,
     required dynamic message,
@@ -127,7 +127,7 @@ class MessageOptionsSheet extends StatelessWidget {
     }
   }
 
-  // ✅ New private method for native call
+  //  New private method for native call
   static Future<void> _showNativeActionSheet(
     String title,
     List<Map<String, String>> actions,

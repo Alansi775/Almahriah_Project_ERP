@@ -1,6 +1,6 @@
-// lib/services/auth_service.dart
-
+// lib/services/auth_service.dart - النسخة النهائية المصححة
 import 'package:flutter/material.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:almahriah_frontend/models/user.dart';
@@ -10,10 +10,12 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:almahriah_frontend/widgets/glassmorphism_widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker/image_picker.dart';
 
 class AuthService {
-  // ✅ عنوان الخادم الموحد
-  static const String baseUrl = 'http://192.168.1.67:5050';
+  //  عنوان الخادم الموحد
+  static const String baseUrl = 'http://192.168.1.65:5050';
 
   // دالة لتسجيل الدخول بكلمة المرور واسم المستخدم
   static Future<User> login(String username, String password) async {
@@ -29,6 +31,12 @@ class AuthService {
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final user = User.fromJson(data['user'], data['token']);
+      
+      // هذا الجزء مفقود في مشروعك القديم، من الأفضل إضافته
+      if (user.isActive == 0) {
+        throw Exception('تم حظر حسابك، يرجى التواصل مع المدير.');
+      }
+
       await _saveUserAndToken(user);
       return user;
     } else {
@@ -187,6 +195,25 @@ class AuthService {
     }
   }
 
+  // دالة جديدة للتحقق من صلاحية الرمز
+  static Future<bool> verifyToken(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/auth/verify-token'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        return true;
+      }
+    } catch (e) {
+      // أي خطأ في الاتصال يعني أن الرمز غير صالح في هذه اللحظة
+    }
+    return false;
+  }
+
   // دالة لحفظ بيانات المستخدم في التخزين المحلي
   static Future<void> _saveUserAndToken(User user) async {
     final prefs = await SharedPreferences.getInstance();
@@ -194,13 +221,112 @@ class AuthService {
     await prefs.setString('user', json.encode(user.toJson()));
   }
 
+  // دالة لاسترجاع المستخدم المسجل دخوله من التخزين المحلي
   static Future<User?> getAuthenticatedUser() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     final userJson = prefs.getString('user');
     if (token != null && userJson != null) {
-      return User.fromJson(json.decode(userJson), token);
+      // 💡 لا تنسى أن ترسل الـtoken إلى دالة fromJson الخاصة بالـUser
+      final user = User.fromJson(json.decode(userJson), token);
+      return user;
     }
     return null;
+  }
+
+  // ✅ دالة جديدة لرفع الصورة الشخصية
+  static Future<bool> uploadProfilePicture(BuildContext context, User user, String filePath) async {
+    final uri = Uri.parse('$baseUrl/api/admin/profile/upload');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Authorization'] = 'Bearer ${user.token}';
+
+    try {
+      if (kIsWeb) {
+        final pickedFile = XFile(filePath);
+        final bytes = await pickedFile.readAsBytes();
+        final fileName = filePath.split('/').last;
+        
+        request.files.add(http.MultipartFile.fromBytes(
+          'profilePicture',
+          bytes,
+          filename: fileName.isNotEmpty ? fileName : 'profile_picture.jpg',
+          contentType: MediaType('image', 'jpeg'),
+        ));
+      } else {
+        final file = await http.MultipartFile.fromPath(
+          'profilePicture',
+          filePath,
+          contentType: MediaType('image', 'jpeg'),
+        );
+        request.files.add(file);
+      }
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      
+      print('Response status: ${response.statusCode}');
+      print('Response body: $responseBody');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(responseBody);
+        return true;
+      } else {
+        try {
+          final errorData = json.decode(responseBody);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorData['message'] ?? 'فشل رفع الصورة')),
+          );
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('فشل رفع الصورة - رد الخادم غير صالح')),
+          );
+        }
+        return false;
+      }
+    } catch (e) {
+      print('Upload error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ في الاتصال: $e')),
+      );
+      return false;
+    }
+  }
+  
+  // ✅ دالة جديدة لحذف الصورة الشخصية
+  static Future<bool> deleteProfilePicture(BuildContext context, User user) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/profile/delete'),
+        headers: {
+          'Authorization': 'Bearer ${user.token}',
+        },
+      );
+      
+      print('Delete response status: ${response.statusCode}');
+      print('Delete response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final responseBody = json.decode(response.body);
+        return true;
+      } else {
+        try {
+          final errorData = json.decode(response.body);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorData['message'] ?? 'فشل حذف الصورة')),
+          );
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('فشل حذف الصورة - رد الخادم غير صالح')),
+          );
+        }
+        return false;
+      }
+    } catch (e) {
+      print('Delete error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ في الاتصال: $e')),
+      );
+      return false;
+    }
   }
 }

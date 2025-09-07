@@ -1,4 +1,4 @@
-// ✅ Final and corrected code for glassmorphism_widgets.dart
+// Final and corrected code for glassmorphism_widgets.dart
 
 import 'package:flutter/material.dart';
 import 'dart:ui';
@@ -49,7 +49,8 @@ class GlassmorphismContainer extends StatelessWidget {
 }
 
 // A reusable Glassmorphism Tag widget
-Widget buildGlassTag({required String text, Color? color, IconData? icon}) {
+// ✅ تم إضافة معلمة fontSize هنا
+Widget buildGlassTag({required String text, Color? color, IconData? icon, double? fontSize}) {
   Color textColor = Colors.black87;
   if (color is MaterialColor) {
     textColor = color.shade900.withOpacity(0.9);
@@ -69,13 +70,14 @@ Widget buildGlassTag({required String text, Color? color, IconData? icon}) {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 16, color: textColor),
+            // ✅ تم تحديث حجم الأيقونة
+            Icon(icon, size: (fontSize ?? 12) * 1.2, color: textColor), 
             const SizedBox(width: 5),
           ],
           Text(
             text,
             style: GoogleFonts.almarai(
-              fontSize: 12,
+              fontSize: fontSize ?? 12, // ✅ تم استخدام المعامل هنا
               fontWeight: FontWeight.bold,
               color: textColor,
             ),
@@ -94,7 +96,7 @@ Widget buildGlassCard({required Widget child, EdgeInsets? padding, BoxShadow? bo
     sigmaX: 10,
     sigmaY: 10,
     color: Colors.white.withOpacity(0.2),
-    boxShadow: boxShadow, // ✅ Pass the boxShadow to the container
+    boxShadow: boxShadow, // Pass the boxShadow to the container
     child: Padding(
       padding: padding ?? const EdgeInsets.all(20),
       child: child,

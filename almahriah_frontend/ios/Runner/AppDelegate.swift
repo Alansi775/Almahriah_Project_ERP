@@ -52,7 +52,7 @@ import UIKit
               let actionStyle: UIAlertAction.Style
               if actionId.contains("delete") {
                   actionStyle = .destructive
-              } else if actionId.contains("cancel") { // ✅ Check for cancel action
+              } else if actionId.contains("cancel") { //  Check for cancel action
                   actionStyle = .cancel
               } else {
                   actionStyle = .default
@@ -153,3 +153,4 @@ import UIKit
     }
   }
 }
+

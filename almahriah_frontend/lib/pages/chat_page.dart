@@ -195,7 +195,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, Ticker
     }
 
     if (data['replyToMessageContent'] != null) {
-     debugPrint('✅ Received message with reply: ${data['replyToMessageContent']}');
+     debugPrint(' Received message with reply: ${data['replyToMessageContent']}');
     }
   }
 

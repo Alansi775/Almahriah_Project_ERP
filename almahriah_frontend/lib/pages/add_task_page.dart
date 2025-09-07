@@ -12,7 +12,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:almahriah_frontend/widgets/glassmorphism_widgets.dart';
 
-// ✅ Define the MethodChannel to communicate with native iOS code
+//  Define the MethodChannel to communicate with native iOS code
 const platform = MethodChannel('com.almahriah.app/dialog');
 
 class AddTaskPage extends StatefulWidget {
@@ -40,7 +40,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
   List<dynamic> _filteredEmployees = [];
   final _employeeSearchController = TextEditingController();
   final FocusNode _employeeFocusNode = FocusNode();
-  bool _showEmployeeList = false; // ✅ متحكم يدوي في إظهار القائمة
+  bool _showEmployeeList = false; //  متحكم يدوي في إظهار القائمة
 
   @override
   void initState() {
@@ -54,7 +54,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
             _showEmployeeList = true;
             _filteredEmployees = _employees;
           }
-          // ✅ لا نغلق القائمة تلقائياً عند فقدان التركيز
+          //  لا نغلق القائمة تلقائياً عند فقدان التركيز
         });
       }
     });
@@ -97,7 +97,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
   }
 
   Future<List<dynamic>> _fetchEmployeesByDepartment() async {
-    final url = Uri.parse('http://192.168.1.67:5050/api/tasks/employees');
+    final url = Uri.parse('http://192.168.1.65:5050/api/tasks/employees');
     try {
       final response = await http.get(
         url,
@@ -127,7 +127,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
 
     if (_formKey.currentState!.validate()) {
       if (_selectedEmployeeId == null) {
-        // ✅ Call native alert for validation error
+        //  Call native alert for validation error
         _showNativeAlert(
           title: 'خطأ في البيانات',
           message: 'الرجاء اختيار الموظف المسؤول.',
@@ -140,7 +140,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
       });
 
       try {
-        final url = Uri.parse('http://192.168.1.67:5050/api/tasks');
+        final url = Uri.parse('http://192.168.1.65:5050/api/tasks');
         final response = await http.post(
           url,
           headers: {
@@ -157,14 +157,14 @@ class _AddTaskPageState extends State<AddTaskPage> {
 
         final responseBody = json.decode(response.body);
         if (response.statusCode == 201) {
-          // ✅ Call native toast for success
+          //  Call native toast for success
           _showNativeToast(message: 'تم إضافة المهمة بنجاح.');
           // Added a small delay to allow the toast to show
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) Navigator.pop(context, true);
           });
         } else {
-          // ✅ Call native alert for API error
+          //  Call native alert for API error
           _showNativeAlert(
             title: 'فشل العملية',
             message: responseBody['message'] ?? 'فشل إضافة المهمة.',
@@ -183,7 +183,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
     }
   }
 
-  // ✅ New method to call native iOS alerts
+  //  New method to call native iOS alerts
   void _showNativeAlert({required String title, required String message}) async {
     try {
       await platform.invokeMethod('showAlert', {'title': title, 'message': message});
@@ -192,7 +192,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
     }
   }
 
-  // ✅ New method to call native iOS toasts
+  //  New method to call native iOS toasts
   void _showNativeToast({required String message}) async {
     try {
       await platform.invokeMethod('showToast', {'message': message});
@@ -326,7 +326,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
     );
   }
 
-  // ✅ عنصر محسن جداً للمتصفح
+  //  عنصر محسن جداً للمتصفح
   Widget _buildBetterEmployeeItem({
     required String name, 
     required bool isSelected, 
@@ -414,7 +414,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // ✅ إغلاق القائمة عند الضغط خارجها فقط
+        //  إغلاق القائمة عند الضغط خارجها فقط
         setState(() {
           _showEmployeeList = false;
         });
@@ -500,7 +500,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
                             future: _employeesFuture,
                             builder: (context, snapshot) {
                               if (snapshot.connectionState == ConnectionState.waiting) {
-                                // ✅ Replaced the default CircularProgressIndicator
+                                //  Replaced the default CircularProgressIndicator
                                 return const Center(child: CupertinoActivityIndicator(radius: 15));
                               } else if (snapshot.hasError) {
                                 return Text(
@@ -538,7 +538,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
                                                     _selectedEmployeeId = employee['id'].toString();
                                                     _selectedEmployeeName = employee['fullName'];
                                                     _employeeSearchController.text = employee['fullName'];
-                                                    _showEmployeeList = false; // ✅ إغلاق يدوي
+                                                    _showEmployeeList = false; //  إغلاق يدوي
                                                     _filteredEmployees = [];
                                                   });
                                                   _employeeFocusNode.unfocus();
@@ -751,7 +751,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
                         _selectedEmployeeId = null;
                         _selectedEmployeeName = null;
                         _employeeSearchController.clear();
-                        _showEmployeeList = false; // ✅ إغلاق القائمة
+                        _showEmployeeList = false; //  إغلاق القائمة
                         _employeeFocusNode.requestFocus();
                       });
                     },

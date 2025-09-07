@@ -1,4 +1,3 @@
-// ✅ Full, corrected, and final code for employee_dashboard.dart
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -17,10 +16,12 @@ import 'package:almahriah_frontend/pages/task_details_page.dart';
 import 'package:almahriah_frontend/pages/ai.dart';
 import 'package:almahriah_frontend/widgets/animated_ai_button.dart';
 import 'package:almahriah_frontend/widgets/task_progress_indicator.dart';
-import 'package:almahriah_frontend/pages/chat_list_page.dart';  
-
+import 'package:almahriah_frontend/pages/chat_list_page.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:almahriah_frontend/pages/image_picker_page.dart';
+import 'package:almahriah_frontend/services/profile_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class EmployeeDashboard extends StatefulWidget {
   final User user;
@@ -40,9 +41,16 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   bool _isLoadingTasks = true;
   String _taskMessage = '';
 
+  // ✅ متغير منفصل لصورة الملف الشخصي
+  String? _currentProfilePictureUrl;
+
+  static const platform = MethodChannel('com.almahriah.app/dialog');
+
   @override
   void initState() {
     super.initState();
+    // ✅ تهيئة الصورة عند بدء التشغيل
+    _currentProfilePictureUrl = widget.user.profilePictureUrl;
     _fetchData();
   }
 
@@ -51,6 +59,8 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     await Future.wait([
       _fetchEmployeeLeaveRequests(),
       _fetchEmployeeTasks(),
+      // ✅ استدعاء دالة تحديث الصورة
+      _updateUserProfilePicture(),
     ]);
   }
 
@@ -65,6 +75,64 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     return fullName[0].toUpperCase();
   }
 
+  // ✅ دالة مشتركة لعرض التنبيهات
+  void _showAlert(String title, String message) {
+    if (kIsWeb || (!kIsWeb && Platform.isAndroid)) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return CupertinoAlertDialog(
+            title: Text(title, style: GoogleFonts.almarai(fontWeight: FontWeight.bold)),
+            content: Text(message, style: GoogleFonts.almarai()),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('موافق', style: TextStyle(color: CupertinoColors.activeBlue)),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } else if (!kIsWeb && Platform.isIOS) {
+      try {
+        platform.invokeMethod('showAlert', {
+          'title': title,
+          'message': message,
+        });
+      } on PlatformException catch (e) {
+        print("Failed to show native alert: '${e.message}'.");
+      }
+    }
+  }
+
+  // ✅ دالة لتحديث صورة المستخدم من الخادم
+  Future<void> _updateUserProfilePicture() async {
+    try {
+      final userResponse = await http.get(
+        Uri.parse('http://192.168.1.65:5050/api/admin/users/${widget.user.id}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.user.token}',
+        },
+      );
+
+      if (userResponse.statusCode == 200) {
+        final userData = json.decode(userResponse.body);
+        if (mounted) {
+          setState(() {
+            _currentProfilePictureUrl = userData['profilePictureUrl'] != null 
+              ? 'http://192.168.1.65:5050${userData['profilePictureUrl']}'
+              : null;
+          });
+        }
+      }
+    } catch (e) {
+      print('خطأ في تحديث صورة المستخدم: $e');
+    }
+  }
+
   Future<void> _fetchEmployeeLeaveRequests() async {
     if (!mounted) return;
     setState(() {
@@ -73,7 +141,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     });
 
     try {
-      final url = Uri.parse('http://192.168.1.67:5050/api/admin/leave-requests/employee/${widget.user.id}');
+      final url = Uri.parse('http://192.168.1.65:5050/api/admin/leave-requests/employee/${widget.user.id}');
       final response = await http.get(
         url,
         headers: {
@@ -89,16 +157,16 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         });
       } else {
         if (!mounted) return;
+        final responseBody = json.decode(response.body);
+        _showAlert('فشل جلب الطلبات', 'فشل جلب الطلبات: ${responseBody['message'] ?? 'خطأ غير معروف'}');
         setState(() {
-          final responseBody = json.decode(response.body);
-          _leaveMessage = 'فشل جلب الطلبات: ${responseBody['message'] ?? 'خطأ غير معروف'}';
           _isLoadingLeaveRequests = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
+      _showAlert('خطأ في الاتصال', 'حدث خطأ في الاتصال بالخادم: $e');
       setState(() {
-        _leaveMessage = 'حدث خطأ في الاتصال بالخادم: $e';
         _isLoadingLeaveRequests = false;
       });
     }
@@ -112,7 +180,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     });
 
     try {
-      final url = Uri.parse('http://192.168.1.67:5050/api/tasks/by-user');
+      final url = Uri.parse('http://192.168.1.65:5050/api/tasks/by-user');
       final response = await http.get(
         url,
         headers: {
@@ -128,95 +196,69 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         });
       } else {
         if (!mounted) return;
+        final responseBody = json.decode(response.body);
+        _showAlert('فشل جلب المهام', 'فشل جلب المهام: ${responseBody['message'] ?? 'خطأ غير معروف'}');
         setState(() {
-          final responseBody = json.decode(response.body);
-          _taskMessage = 'فشل جلب المهام: ${responseBody['message'] ?? 'خطأ غير معروف'}';
           _isLoadingTasks = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ في الاتصال بالخادم: $e', style: GoogleFonts.almarai()),
-        ),
-      );
+      _showAlert('خطأ في الاتصال', 'حدث خطأ في الاتصال بالخادم: $e');
       setState(() {
-        _taskMessage = 'حدث خطأ في الاتصال بالخادم: $e';
         _isLoadingTasks = false;
       });
     }
   }
 
   Future<void> _updateTaskStatus(dynamic task, String newStatus) async {
-  if (task == null || task['id'] == null) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('خطأ: معلومات المهمة غير متوفرة.', style: GoogleFonts.almarai()),
-      ),
-    );
-    return;
-  }
-
-  final String taskId = task['id'].toString();
-
-  try {
-    final url = Uri.parse('http://192.168.1.67:5050/api/tasks/$taskId/status');
-
-    Map<String, dynamic> body = {'status': newStatus};
-    if (newStatus == 'completed') {
-      body['completedAt'] = DateTime.now().toUtc().toIso8601String();
-    } else if (newStatus == 'canceled') {
-      body['canceledAt'] = DateTime.now().toUtc().toIso8601String();
-    } else if (newStatus == 'in_progress') {
-      body['inProgressAt'] = DateTime.now().toUtc().toIso8601String();
+    if (task == null || task['id'] == null) {
+      if (!mounted) return;
+      _showAlert('خطأ', 'معلومات المهمة غير متوفرة.');
+      return;
     }
 
-    final response = await http.put(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${widget.user.token}',
-      },
-      body: jsonEncode(body),
-    );
+    final String taskId = task['id'].toString();
 
-    if (response.statusCode == 200) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('تم تحديث حالة المهمة بنجاح!', style: GoogleFonts.almarai()),
-        ),
+    try {
+      final url = Uri.parse('http://192.168.1.65:5050/api/tasks/$taskId/status');
+
+      Map<String, dynamic> body = {'status': newStatus};
+      if (newStatus == 'completed') {
+        body['completedAt'] = DateTime.now().toUtc().toIso8601String();
+      } else if (newStatus == 'canceled') {
+        body['canceledAt'] = DateTime.now().toUtc().toIso8601String();
+      } else if (newStatus == 'in_progress') {
+        body['inProgressAt'] = DateTime.now().toUtc().toIso8601String();
+      }
+
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.user.token}',
+        },
+        body: jsonEncode(body),
       );
-      // ✅ تحديث حالة المهمة محليًا بدلاً من جلب جميع المهام
-      setState(() {
-        final taskIndex = _tasks.indexWhere((t) => t['id'] == task['id']);
-        if (taskIndex != -1) {
-          _tasks[taskIndex]['status'] = newStatus;
-        }
-      });
-    } else {
+
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        setState(() {
+          final taskIndex = _tasks.indexWhere((t) => t['id'] == task['id']);
+          if (taskIndex != -1) {
+            _tasks[taskIndex]['status'] = newStatus;
+          }
+        });
+      } else {
+        if (!mounted) return;
+        final responseBody = json.decode(response.body);
+        _showAlert('فشل التحديث', 'فشل تحديث حالة المهمة: ${responseBody['message'] ?? 'خطأ غير معروف'}');
+      }
+    } catch (e) {
       if (!mounted) return;
-      final responseBody = json.decode(response.body);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'فشل تحديث حالة المهمة: ${responseBody['message'] ?? 'خطأ غير معروف'}',
-            style: GoogleFonts.almarai(),
-          ),
-        ),
-      );
+      _showAlert('خطأ في الاتصال', 'حدث خطأ في الاتصال بالخادم: $e');
     }
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('حدث خطأ في الاتصال بالخادم: $e', style: GoogleFonts.almarai()),
-      ),
-    );
   }
-}
 
   String _formatDate(String? date) {
     if (date == null) return 'غير محدد';
@@ -309,6 +351,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    String initials = _getInitials(widget.user.fullName);
     final bool isLoading = _isLoadingTasks || _isLoadingLeaveRequests;
     final bool isIOS = kIsWeb ? false : Platform.isIOS;
 
@@ -333,7 +376,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
           ),
         ),
           actions: [
-           // ✅ إضافة أيقونة المحادثة
+           //  إضافة أيقونة المحادثة
           IconButton(
             icon: Icon(
               CupertinoIcons.chat_bubble_2_fill,
@@ -378,15 +421,69 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        backgroundColor: const Color(0xFFE5E7EB),
-                        radius: 30,
-                        child: Text(
-                          _getInitials(widget.user.fullName),
-                          style: GoogleFonts.almarai(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade800,
+                      // ✅ تم استبدال CircleAvatar القديم بهذا الكود
+                      GestureDetector(
+                        onTap: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ImagePickerPage(user: widget.user),
+                            ),
+                          );
+                          
+                          if (result == true && mounted) {
+                            // تحديث بيانات المستخدم بعد رفع الصورة
+                            await _updateUserProfilePicture();
+                            _showAlert('نجاح', 'تم تحديث صورة الملف الشخصي.');
+                          }
+                        },
+                        onLongPress: () async {
+                          await handleProfileImageDelete(context, widget.user);
+                          await _updateUserProfilePicture();
+                        },
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: const Color(0xFFE5E7EB),
+                                radius: 30,
+                                backgroundImage: _currentProfilePictureUrl != null
+                                    ? NetworkImage(_currentProfilePictureUrl!)
+                                    : null,
+                                child: _currentProfilePictureUrl == null
+                                    ? Text(
+                                        initials,
+                                        style: GoogleFonts.almarai(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade800,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              Positioned(
+                                bottom: -2,
+                                right: -2,
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade600,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),

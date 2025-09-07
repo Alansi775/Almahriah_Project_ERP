@@ -1,4 +1,4 @@
-// ✅ Full, corrected, and final code for leave_calendar_page.dart
+//  Full, corrected, and final code for leave_calendar_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -7,7 +7,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:ui';
-// ✅ Import the foundation library instead of dart:io
+//  Import the foundation library instead of dart:io
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:almahriah_frontend/models/user.dart';
 import 'package:intl/intl.dart' as intl;
@@ -76,7 +76,7 @@ class _LeaveCalendarPageState extends State<LeaveCalendarPage> {
 
     try {
       final url = Uri.parse(
-          'http://192.168.1.67:5050/api/admin/leave-requests/employee/${widget.user.id}');
+          'http://192.168.1.65:5050/api/admin/leave-requests/employee/${widget.user.id}');
       final response = await http.get(
         url,
         headers: {
@@ -99,7 +99,7 @@ class _LeaveCalendarPageState extends State<LeaveCalendarPage> {
           final String reason = request['reason'] ?? 'لا يوجد سبب';
           final String id = (request['id'] ?? 'unknown').toString();
 
-          // ✅ Corrected: Check if dates are valid and convert to local time
+          //  Corrected: Check if dates are valid and convert to local time
           if (startDateUtc != null && endDateUtc != null) {
             // Use toLocal() to convert to the user's local timezone
             final startDate = startDateUtc.toLocal();
@@ -214,7 +214,7 @@ Future<void> _deleteLeaveRequest(String id) async {
     });
     try {
       print('Attempting to delete request with ID: $id');
-      final url = Uri.parse('http://192.168.1.67:5050/api/employee/leave-requests/$id');
+      final url = Uri.parse('http://192.168.1.65:5050/api/employee/leave-requests/$id');
       final response = await http.delete(
         url,
         headers: {
@@ -428,7 +428,7 @@ Future<void> _deleteLeaveRequest(String id) async {
       ),
     );
 
-    // ✅ Use a single, unified build based on kIsWeb
+    //  Use a single, unified build based on kIsWeb
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(

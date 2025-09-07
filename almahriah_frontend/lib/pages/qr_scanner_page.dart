@@ -14,7 +14,7 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
 
-// ✅ تعريف قناة التواصل الناتيف
+//  تعريف قناة التواصل الناتيف
 const MethodChannel _dialogChannel = MethodChannel('com.almahriah.app/dialog');
 
 class QrScannerPage extends StatefulWidget {
@@ -34,12 +34,12 @@ class _QrScannerPageState extends State<QrScannerPage> {
     super.dispose();
   }
 
-  // ✅ دالة جديدة لإرسال الرسائل عبر قنوات التواصل
+  //  دالة جديدة لإرسال الرسائل عبر قنوات التواصل
   Future<void> _showNativeMessage({
     required bool isSuccess,
     required String message,
   }) async {
-    // ✅ في iOS، نستخدم قنوات التواصل
+    //  في iOS، نستخدم قنوات التواصل
     if (!kIsWeb && Platform.isIOS) {
       if (isSuccess) {
         // رسالة نجاح: نستخدم 'showToast'
@@ -50,7 +50,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
         await _dialogChannel.invokeMethod('showAlert', {'title': 'خطأ', 'message': message});
       }
     } else {
-      // ✅ في Android أو الويب، نستخدم ScaffoldMessenger
+      //  في Android أو الويب، نستخدم ScaffoldMessenger
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message, style: GoogleFonts.almarai()),
@@ -76,10 +76,10 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
       if (!mounted) return;
 
-      // ✅ عرض الرسالة الناتيف أولاً
+      //  عرض الرسالة الناتيف أولاً
       await _showNativeMessage(isSuccess: true, message: 'تم تسجيل الدخول بنجاح!');
 
-      // ✅ نستخدم تأخير بسيط لضمان ظهور الرسالة الناتيف
+      //  نستخدم تأخير بسيط لضمان ظهور الرسالة الناتيف
       await Future.delayed(const Duration(milliseconds: 1500));
 
       if (!mounted) return;
@@ -88,7 +88,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
     } catch (e) {
       if (!mounted) return;
 
-      // ✅ عرض رسالة الخطأ الناتيف
+      //  عرض رسالة الخطأ الناتيف
       final errorMessage = e.toString().replaceFirst('Exception: ', '');
       await _showNativeMessage(isSuccess: false, message: errorMessage);
 

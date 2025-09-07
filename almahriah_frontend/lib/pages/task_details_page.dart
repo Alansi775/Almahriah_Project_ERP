@@ -1,4 +1,4 @@
-// ✅ Replace the entire content of your task_details_page.dart file with this code.
+//  Replace the entire content of your task_details_page.dart file with this code.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -130,7 +130,7 @@ class TaskDetailsPage extends StatelessWidget {
                       ),
                     if (task['completedAt'] != null)
                       _buildIconCard(
-                        icon: Icons.check_circle, // ✅ Corrected icon name
+                        icon: Icons.check_circle, //  Corrected icon name
                         title: 'تاريخ الانتهاء',
                         content: _formatDate(task['completedAt']),
                         color: Colors.green.shade800,

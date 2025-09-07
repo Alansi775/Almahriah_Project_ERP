@@ -6,6 +6,8 @@ class User {
   final String username;
   final String role;
   final String department;
+  final String? profilePictureUrl; // this for the profile picture
+  final int isActive;
   final String token;
 
   User({
@@ -14,6 +16,8 @@ class User {
     required this.username,
     required this.role,
     required this.department,
+    required this.profilePictureUrl,
+    required this.isActive,
     required this.token,
   });
 
@@ -24,6 +28,8 @@ class User {
       username: json['username'] as String,
       role: json['role'] as String,
       department: json['department'] as String,
+      profilePictureUrl: json['profilePictureUrl'] as String?,
+      isActive: json['isActive'] as int,
       token: token,
     );
   }
@@ -36,6 +42,8 @@ class User {
       'username': username,
       'role': role,
       'department': department,
+      'profilePictureUrl': profilePictureUrl,
+      'isActive': isActive,
       'token': token,
     };
   }

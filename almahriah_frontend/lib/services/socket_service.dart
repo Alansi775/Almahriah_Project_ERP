@@ -30,7 +30,7 @@ class SocketService {
 
   void initialize(User user) {
     if (_isInitialized && _socket?.connected == true && _currentUser?.id == user.id) {
-      debugPrint('✅ Socket already initialized and connected for user ${user.id}');
+      debugPrint(' Socket already initialized and connected for user ${user.id}');
       return;
     }
     
@@ -141,7 +141,7 @@ class SocketService {
           final Map<String, dynamic> readMap = Map<String, dynamic>.from(data);
           final String senderId = readMap['senderId'].toString();
           _clearUnreadCount(senderId);
-          debugPrint('✅ Messages marked as read for sender: $senderId');
+          debugPrint(' Messages marked as read for sender: $senderId');
         }
       });
 
