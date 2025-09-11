@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:almahriah_frontend/services/auth_service.dart';
-import 'package:almahriah_frontend/pages/login_page.dart';
+import 'package:almahriah_frontend/pages/general/login_page.dart';
 import 'package:almahriah_frontend/custom_page_route.dart';
 import 'package:flutter/services.dart';
 

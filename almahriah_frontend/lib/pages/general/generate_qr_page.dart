@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'dart:async'; // 💡 إضافة جديدة
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:almahriah_frontend/models/user.dart';
-import 'package:almahriah_frontend/pages/admin_dashboard.dart';
+import 'package:almahriah_frontend/pages/dashboards/admin_dashboard.dart';
 
 class GenerateQrPage extends StatefulWidget {
   const GenerateQrPage({super.key});
@@ -37,7 +37,7 @@ class _GenerateQrPageState extends State<GenerateQrPage> {
   Future<void> _generateTempQrCode() async {
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.1.65:5050/api/auth/generate-temp-qr'),
+        Uri.parse('http://192.168.1.78:5050/api/auth/generate-temp-qr'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -68,7 +68,7 @@ class _GenerateQrPageState extends State<GenerateQrPage> {
       if (!mounted) return;
       try {
         final response = await http.get(
-          Uri.parse('http://192.168.1.65:5050/api/auth/check-qr-session?qrToken=$_qrToken'),
+          Uri.parse('http://192.168.1.78:5050/api/auth/check-qr-session?qrToken=$_qrToken'),
           headers: {'Content-Type': 'application/json'},
         );
 

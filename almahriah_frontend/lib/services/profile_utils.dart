@@ -158,7 +158,7 @@ Future<String?> updateProfilePictureFromApi(String userId, String token, {requir
     }
 
     final response = await http.get(
-      Uri.parse('http://192.168.1.65:5050/$endpoint'),
+      Uri.parse('http://192.168.1.78:5050/$endpoint'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -171,7 +171,7 @@ Future<String?> updateProfilePictureFromApi(String userId, String token, {requir
 
       final String? profilePictureUrl = userData['profilePictureUrl'];
       final String? fullImageUrl = profilePictureUrl != null
-          ? 'http://192.168.1.65:5050$profilePictureUrl'
+          ? 'http://192.168.1.78:5050$profilePictureUrl'
           : null;
 
       // 💾 حفظ المسار الكامل في SharedPreferences

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:almahriah_frontend/pages/admin_dashboard.dart';
-import 'package:almahriah_frontend/pages/employee_dashboard.dart';
-import 'package:almahriah_frontend/pages/hr_dashboard.dart';
+import 'package:almahriah_frontend/pages/dashboards/admin_dashboard.dart';
+import 'package:almahriah_frontend/pages/dashboards/employee_dashboard.dart';
+import 'package:almahriah_frontend/pages/dashboards/hr_dashboard.dart';
 import 'package:almahriah_frontend/models/user.dart';
-import 'package:almahriah_frontend/pages/manager_dashboard.dart';
-import 'package:almahriah_frontend/pages/qr_scanner_page.dart';
+import 'package:almahriah_frontend/pages/dashboards/manager_dashboard.dart';
+import 'package:almahriah_frontend/pages/general/qr_scanner_page.dart';
 import 'package:almahriah_frontend/services/auth_service.dart';
 import 'package:flutter/services.dart';
 import 'package:almahriah_frontend/widgets/glassmorphism_widgets.dart';

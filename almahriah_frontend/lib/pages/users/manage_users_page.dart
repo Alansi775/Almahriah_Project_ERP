@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:almahriah_frontend/pages/login_page.dart';
+import 'package:almahriah_frontend/pages/general/login_page.dart';
 import 'package:almahriah_frontend/services/auth_service.dart';
 
 class ManageUsersPage extends StatefulWidget {

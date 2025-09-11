@@ -94,7 +94,7 @@ class _AddUserPageState extends State<AddUserPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.1.65:5050/api/admin/users'), 
+        Uri.parse('http://192.168.1.78:5050/api/admin/users'), 
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',

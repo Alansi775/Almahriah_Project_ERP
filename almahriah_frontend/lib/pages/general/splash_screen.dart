@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:almahriah_frontend/pages/login_page.dart';
+import 'package:almahriah_frontend/pages/general/login_page.dart';
 import 'package:flutter/foundation.dart'; // ✅ لا حاجة لـdart:io بعد الآن
 
 class SplashScreen extends StatefulWidget {

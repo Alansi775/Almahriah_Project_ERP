@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:almahriah_frontend/models/user.dart';
-import 'package:almahriah_frontend/pages/chat_page.dart';
+import 'package:almahriah_frontend/pages/chat/chat_page.dart';
 import 'package:almahriah_frontend/services/auth_service.dart';
 import 'package:almahriah_frontend/custom_page_route.dart';
 import 'dart:ui';

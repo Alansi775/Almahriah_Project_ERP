@@ -1,54 +1,54 @@
-// lib/pages/manager_dashboard.dart
-
+// هذا هو الكود الكامل لملف admin_dashboard.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:almahriah_frontend/models/user.dart'; // ✅ تم التصحيح
-import 'package:almahriah_frontend/services/auth_service.dart'; // ✅ تم التصحيح
-import 'package:almahriah_frontend/widgets/glassmorphism_widgets.dart'; // ✅ تم التصحيح
-import 'package:almahriah_frontend/widgets/dashboard_widgets.dart'; // ✅ تم التصحيح
+import 'package:almahriah_frontend/models/user.dart';
+import 'package:almahriah_frontend/services/auth_service.dart';
+import 'package:almahriah_frontend/widgets/glassmorphism_widgets.dart';
+import 'package:almahriah_frontend/widgets/dashboard_widgets.dart';
 import 'package:flutter/services.dart';
-import 'package:almahriah_frontend/custom_page_route.dart'; // ✅ تم التصحيح
+import 'package:almahriah_frontend/custom_page_route.dart';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show kIsWeb; 
 import 'dart:io' show Platform;
-import 'package:almahriah_frontend/pages/ai.dart'; // ✅ تم التصحيح
-import 'package:almahriah_frontend/widgets/animated_ai_button.dart'; // ✅ تم التصحيح
-import 'package:almahriah_frontend/pages/image_picker_page.dart'; // ✅ تم التصحيح
-import 'package:almahriah_frontend/services/profile_utils.dart'; // ✅ تم التصحيح
 import 'package:shared_preferences/shared_preferences.dart';
-import 'chat_list_page.dart';
-import 'tasks_page.dart';
-import 'leave_requests_page.dart';
-import 'tasks_list_page.dart';
-import 'add_task_page.dart';
 
-class ManagerDashboard extends StatefulWidget {
+import 'package:almahriah_frontend/pages/users/add_user_page.dart';
+import 'package:almahriah_frontend/pages/users/manage_users_page.dart';
+import 'package:almahriah_frontend/pages/leaves/leave_requests_page.dart';
+import 'package:almahriah_frontend/pages/tasks/tasks_page.dart';
+import 'package:almahriah_frontend/pages/tasks/tasks_list_page.dart'; 
+import 'package:almahriah_frontend/pages/general/ai.dart';
+import 'package:almahriah_frontend/widgets/animated_ai_button.dart';
+import 'package:almahriah_frontend/pages/chat/chat_list_page.dart'; 
+import 'package:almahriah_frontend/pages/general/image_picker_page.dart';
+import 'package:almahriah_frontend/services/profile_utils.dart';
+
+class AdminDashboard extends StatefulWidget {
   final User user;
   
-  const ManagerDashboard({super.key, required this.user});
+  const AdminDashboard({super.key, required this.user});
 
   @override
-  State<ManagerDashboard> createState() => _ManagerDashboardState();
+  State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _ManagerDashboardState extends State<ManagerDashboard> {
+class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic> _stats = {};
   bool _isLoading = true;
   double _scrollOffset = 0.0;
-  String? _currentProfilePictureUrl; // ✅ إضافة متغير حالة الصورة
+  String? _currentProfilePictureUrl; // ✅ متغير منفصل لصورة الملف الشخصي
 
   static const platform = MethodChannel('com.almahriah.app/dialog');
 
   @override
   void initState() {
     super.initState();
-    _currentProfilePictureUrl = widget.user.profilePictureUrl;
+    _currentProfilePictureUrl = widget.user.profilePictureUrl; // ✅ تهيئة الصورة
     _fetchDashboardStats();
-    _updateUserProfilePicture(); // ✅ استدعاء دالة تحديث الصورة
   }
 
   void _showAlert(String title, String message) {
@@ -88,7 +88,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     });
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.65:5050/api/manager/dashboard-stats'),
+        Uri.parse('http://192.168.1.78:5050/api/admin/dashboard-stats'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',
@@ -100,6 +100,10 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
           _stats = json.decode(response.body);
           _isLoading = false;
         });
+        
+        // ✅ تحديث صورة المستخدم من الخادم
+        await _updateUserProfilePicture();
+        
         HapticFeedback.lightImpact();
       } else if(response.statusCode == 401 || response.statusCode == 403) {
         if (!mounted) return;
@@ -118,18 +122,17 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     } catch (e) {
       if (!mounted) return;
       _showAlert('خطأ في الاتصال', 'حدث خطأ في الاتصال بالخادم: $e');
-      print('Failed to fetch dashboard stats: $e');
       setState(() {
         _isLoading = false;
       });
     }
   }
 
-  // ✅ دالة تحديث الصورة
+  // ✅ دالة لتحديث صورة المستخدم من الخادم
   Future<void> _updateUserProfilePicture() async {
     try {
       final userResponse = await http.get(
-        Uri.parse('http://192.168.1.65:5050/api/admin/users/${widget.user.id}'),
+        Uri.parse('http://192.168.1.78:5050/api/admin/users/${widget.user.id}'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',
@@ -141,14 +144,46 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
         if (mounted) {
           setState(() {
             _currentProfilePictureUrl = userData['profilePictureUrl'] != null 
-              ? 'http://192.168.1.65:5050${userData['profilePictureUrl']}'
+              ? 'http://192.168.1.78:5050${userData['profilePictureUrl']}'
               : null;
           });
         }
       }
     } catch (e) {
-      print('خطأ في تحديث صورة المدير: $e');
+      print('خطأ في تحديث صورة المستخدم: $e');
     }
+  }
+
+  List<PieChartSectionData> _getPieChartSections() {
+    if (_stats['usersByDepartment'] == null) {
+      return [];
+    }
+    final List<Color> colors = [
+      Colors.blue.shade400,
+      Colors.green.shade400,
+      Colors.orange.shade400,
+      Colors.purple.shade400,
+      Colors.red.shade400,
+      Colors.teal.shade400,
+    ];
+    List<dynamic> departments = _stats['usersByDepartment'];
+    return departments.map((department) {
+      final int index = departments.indexOf(department);
+      final Color color = colors[index % colors.length];
+      final double value = (department['count'] as int).toDouble();
+      final String title = department['department'];
+      return PieChartSectionData(
+        color: color.withOpacity(0.7),
+        value: value,
+        title: '$title\n(${value.toInt()})',
+        radius: 80,
+        titleStyle: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      );
+    }).toList();
   }
   
   void _navigateToTasks(String title, String status) {
@@ -194,9 +229,10 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ✅ تم استبدال CircleAvatar الحالي بالكود الجديد
+                      // ✅ تم استبدال CircleAvatar القديم بهذا الكود
                       GestureDetector(
                         onTap: () async {
+                          // استخدام ImagePickerPage
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -204,14 +240,26 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                             ),
                           );
                           
-                          if (result == true && mounted) {
-                            await _updateUserProfilePicture();
+                          if (result == true) {
+                            // إعادة قراءة بيانات المستخدم المحدثة من SharedPreferences
+                            final prefs = await SharedPreferences.getInstance();
+                            final userJson = prefs.getString('user');
+                            if (userJson != null && mounted) {
+                              final userData = json.decode(userJson);
+                              if (userData['profilePictureUrl'] != null) {
+                                setState(() {
+                                  _currentProfilePictureUrl = userData['profilePictureUrl'];
+                                });
+                              }
+                            }
+                            await _fetchDashboardStats();
                             _showAlert('نجاح', 'تم تحديث صورة الملف الشخصي.');
                           }
                         },
                         onLongPress: () async {
+                          // يستدعي دالة حذف الصورة من ملف profile_utils
                           await handleProfileImageDelete(context, widget.user);
-                          await _updateUserProfilePicture();
+                          await _fetchDashboardStats();
                         },
                         child: MouseRegion(
                           cursor: SystemMouseCursors.click,
@@ -229,7 +277,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                                         style: GoogleFonts.poppins(
                                           fontSize: 24,
                                           fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF2C3E50),
+                                          color: Colors.blue.shade800,
                                         ),
                                       )
                                     : null,
@@ -285,42 +333,72 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                     Navigator.push(context, CustomPageRoute(child: ChatListPage(user: widget.user)));
                   },
               ),
-              ListTile(
-                leading: const Icon(Icons.task, color: Color(0xFFD35400)),
-                title: Text('إدارة المهام', style: GoogleFonts.almarai()),
-                onTap: () {
-                  HapticFeedback.heavyImpact();
-                  Navigator.pop(context);
-                  Navigator.push(context, CustomPageRoute(child: TasksPage(user: widget.user)));
-                },
-              ),
-              ListTile(
-                  leading: const Icon(Icons.add, color: Color(0xFF2C3E50)),
-                  title: Text('إضافة مهمة جديدة', style: GoogleFonts.almarai()),
+              if (widget.user.role == 'Admin') ...[
+                ListTile(
+                  leading: const Icon(Icons.person_add, color: Colors.blueAccent),
+                  title: Text('إضافة مستخدم', style: GoogleFonts.almarai()),
                   onTap: () {
                     HapticFeedback.heavyImpact();
                     Navigator.pop(context);
-                    Navigator.push(context, CustomPageRoute(child: AddTaskPage(user: widget.user)));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.calendar_month, color: Color(0xFF8E44AD)),
-                title: Text('طلبات الإجازة', style: GoogleFonts.almarai()),
-                onTap: () {
-                  HapticFeedback.heavyImpact();
-                  Navigator.pop(context);
-                  Navigator.push(context, CustomPageRoute(child: LeaveRequestsPage(user: widget.user)));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.qr_code_scanner, color: Color(0xFF16A085)),
-                title: Text('إنشاء رمز QR للدخول', style: GoogleFonts.almarai()),
-                onTap: () {
-                  HapticFeedback.heavyImpact();
-                  Navigator.pop(context);
-                  AuthService.generateQrCode(context, widget.user);
-                },
-              ),
+                    Navigator.push(context, CustomPageRoute(child: AddUserPage(user: widget.user)));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.manage_accounts, color: Colors.green),
+                  title: Text('التحكم في المستخدمين', style: GoogleFonts.almarai()),
+                  onTap: () {
+                    HapticFeedback.heavyImpact();
+                    Navigator.pop(context);
+                    Navigator.push(context, CustomPageRoute(child: ManageUsersPage(user: widget.user)));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.task, color: Colors.orange),
+                  title: Text('إدارة المهام', style: GoogleFonts.almarai()),
+                  onTap: () {
+                    HapticFeedback.heavyImpact();
+                    Navigator.pop(context);
+                    Navigator.push(context, CustomPageRoute(child: TasksPage(user: widget.user)));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.calendar_month, color: Colors.purple),
+                  title: Text('طلبات الإجازة', style: GoogleFonts.almarai()),
+                  onTap: () {
+                    HapticFeedback.heavyImpact();
+                    Navigator.pop(context);
+                    Navigator.push(context, CustomPageRoute(child: LeaveRequestsPage(user: widget.user)));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.qr_code_scanner, color: Colors.teal),
+                  title: Text('إنشاء رمز QR للدخول', style: GoogleFonts.almarai()),
+                  onTap: () {
+                    HapticFeedback.heavyImpact();
+                    Navigator.pop(context);
+                    AuthService.generateQrCode(context, widget.user);
+                  },
+                ),
+              ] else if (widget.user.role == 'Manager') ...[
+                ListTile(
+                  leading: const Icon(Icons.task, color: Colors.orange),
+                  title: Text('إدارة المهام', style: GoogleFonts.almarai()),
+                  onTap: () {
+                    HapticFeedback.heavyImpact();
+                    Navigator.pop(context);
+                    Navigator.push(context, CustomPageRoute(child: TasksPage(user: widget.user)));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.calendar_month, color: Colors.purple),
+                  title: Text('طلبات الإجازة', style: GoogleFonts.almarai()),
+                  onTap: () {
+                    HapticFeedback.heavyImpact();
+                    Navigator.pop(context);
+                    Navigator.push(context, CustomPageRoute(child: LeaveRequestsPage(user: widget.user)));
+                  },
+                ),
+              ],
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
@@ -363,7 +441,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                     elevation: 0,
                     backgroundColor: Colors.transparent,
                     flexibleSpace: FlexibleSpaceBar(
-                      background: ClipRRect(
+                      background: ClipRect(
                         child: BackdropFilter(
                           filter: ImageFilter.blur(
                             sigmaX: isScrolled ? 10 : 0,
@@ -389,18 +467,12 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                       if (kIsWeb || !kIsWeb && Platform.isAndroid)
                         IconButton(
                           icon: const Icon(Icons.refresh, color: Colors.black),
-                          onPressed: () {
-                            _fetchDashboardStats();
-                            _updateUserProfilePicture(); // ✅ تحديث الصورة عند السحب
-                          },
+                          onPressed: _fetchDashboardStats,
                         ),
                       if (isIOS)
                         CupertinoButton(
                           padding: EdgeInsets.zero,
-                          onPressed: () {
-                            _fetchDashboardStats();
-                            _updateUserProfilePicture(); // ✅ تحديث الصورة عند السحب
-                          },
+                          onPressed: _fetchDashboardStats,
                           child: const Icon(Icons.refresh, color: Colors.black),
                         ),
                       IconButton(
@@ -411,10 +483,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                   ),
                   if (!kIsWeb)
                     CupertinoSliverRefreshControl(
-                      onRefresh: () async {
-                        await _fetchDashboardStats();
-                        await _updateUserProfilePicture(); // ✅ تحديث الصورة عند السحب
-                      },
+                      onRefresh: _fetchDashboardStats,
                       builder: (
                         BuildContext context,
                         RefreshIndicatorMode refreshState,
@@ -485,49 +554,29 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                 mainAxisSpacing: 20,
                 crossAxisSpacing: 20,
                 children: [
-                  GestureDetector(
-                    onTap: () {
-                      _navigateToTasks('إجمالي المهام', '');
-                    },
-                    child: buildStatTile(
-                      'إجمالي المهام',
-                      _stats['totalTasks']?.toString() ?? '0',
-                      Icons.list_alt,
-                      const Color(0xFF2C3E50),
-                    ),
+                  buildStatTile(
+                    'إجمالي المستخدمين',
+                    _stats['totalUsers']?.toString() ?? '0',
+                    Icons.group_outlined,
+                    Colors.blue.shade400,
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      _navigateToTasks('مهام مكتملة', 'completed');
-                    },
-                    child: buildStatTile(
-                      'مهام مكتملة',
-                      _stats['completedTasks']?.toString() ?? '0',
-                      Icons.check_circle_outline,
-                      const Color(0xFF16A085),
-                    ),
+                  buildStatTile(
+                    'مستخدمون نشطون',
+                    _stats['activeUsers']?.toString() ?? '0',
+                    Icons.person_pin_circle_outlined,
+                    Colors.green.shade400,
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      _navigateToTasks('مهام قيد التنفيذ', 'in_progress');
-                    },
-                    child: buildStatTile(
-                      'مهام قيد التنفيذ',
-                      _stats['inProgressTasks']?.toString() ?? '0',
-                      Icons.access_time_outlined,
-                      const Color(0xFFD35400),
-                    ),
+                  buildStatTile(
+                    'مدراء النظام',
+                    _stats['admins']?.toString() ?? '0',
+                    Icons.verified_user_outlined,
+                    Colors.orange.shade400,
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      _navigateToTasks('مهام لم تبدأ', 'pending');
-                    },
-                    child: buildStatTile(
-                      'مهام لم تبدأ',
-                      _stats['notStartedTasks']?.toString() ?? '0',
-                      Icons.pending_actions_outlined,
-                      const Color(0xFF8E44AD),
-                    ),
+                  buildStatTile(
+                    'طلبات الإجازة',
+                    _stats['pendingLeaveRequests']?.toString() ?? '0',
+                    Icons.calendar_today,
+                    Colors.purple.shade400,
                   ),
                 ],
               );
@@ -540,7 +589,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  'إحصائيات الموظفين',
+                  'توزيع المستخدمين حسب القسم',
                   style: GoogleFonts.almarai(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -548,39 +597,16 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    int crossAxisCount = constraints.maxWidth < 600 ? 1 : 2;
-                    double childAspectRatio = constraints.maxWidth < 600 ? 2.5 : 1.5;
-                    return GridView.count(
-                      physics: const NeverScrollableScrollPhysics(),
-                      shrinkWrap: true,
-                      crossAxisCount: crossAxisCount,
-                      childAspectRatio: childAspectRatio,
-                      mainAxisSpacing: 20,
-                      crossAxisSpacing: 20,
-                      children: [
-                        buildStatTile(
-                          'إجمالي الموظفين',
-                          _stats['totalUsers']?.toString() ?? '0',
-                          Icons.group_outlined,
-                          const Color(0xFF2C3E50),
-                        ),
-                        buildStatTile(
-                          'مستخدمون نشطون',
-                          _stats['activeUsers']?.toString() ?? '0',
-                          Icons.person_pin_circle_outlined,
-                          const Color(0xFF16A085),
-                        ),
-                        buildStatTile(
-                          'طلبات الإجازة',
-                          _stats['pendingLeaveRequests']?.toString() ?? '0',
-                          Icons.calendar_today,
-                          const Color(0xFF8E44AD),
-                        ),
-                      ],
-                    );
-                  },
+                SizedBox(
+                  height: 300,
+                  child: PieChart(
+                    PieChartData(
+                      sections: _getPieChartSections(),
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 60,
+                      borderData: FlBorderData(show: false),
+                    ),
+                  ),
                 ),
               ],
             ),

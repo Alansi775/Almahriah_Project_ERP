@@ -4,7 +4,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:almahriah_frontend/models/user.dart';
-import 'package:almahriah_frontend/pages/login_page.dart';
+import 'package:almahriah_frontend/pages/general/login_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -15,7 +15,7 @@ import 'package:image_picker/image_picker.dart';
 
 class AuthService {
   //  عنوان الخادم الموحد
-  static const String baseUrl = 'http://192.168.1.65:5050';
+  static const String baseUrl = 'http://192.168.1.78:5050';
 
   // دالة لتسجيل الدخول بكلمة المرور واسم المستخدم
   static Future<User> login(String username, String password) async {

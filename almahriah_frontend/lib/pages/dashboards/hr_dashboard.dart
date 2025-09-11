@@ -3,23 +3,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:almahriah_frontend/models/user.dart';
-import 'package:almahriah_frontend/pages/leave_requests_page.dart';
-import 'package:almahriah_frontend/pages/leave_history_page.dart';
-import 'package:almahriah_frontend/pages/employee_list_page.dart';
-import 'package:almahriah_frontend/pages/tasks_page.dart';
+import 'package:almahriah_frontend/pages/leaves/leave_requests_page.dart';
+import 'package:almahriah_frontend/pages/leaves/leave_history_page.dart';
+import 'package:almahriah_frontend/pages/users/employee_list_page.dart';
+import 'package:almahriah_frontend/pages/tasks/tasks_page.dart';
 import 'package:almahriah_frontend/services/auth_service.dart';
 import 'package:almahriah_frontend/widgets/glassmorphism_widgets.dart';
 import 'package:almahriah_frontend/widgets/action_widgets.dart';
-import 'package:almahriah_frontend/pages/ai.dart';
+import 'package:almahriah_frontend/pages/general/ai.dart';
 import 'package:almahriah_frontend/widgets/animated_ai_button.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:almahriah_frontend/pages/chat_list_page.dart';
+import 'package:almahriah_frontend/pages/chat/chat_list_page.dart';
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 // ✅ إضافة الاستيرادات الجديدة
-import 'package:almahriah_frontend/pages/image_picker_page.dart';
+import 'package:almahriah_frontend/pages/general/image_picker_page.dart';
 import 'package:almahriah_frontend/services/profile_utils.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -64,7 +64,7 @@ class _HrDashboardState extends State<HrDashboard> {
     try {
       final userResponse = await http.get(
         // ✅ استخدام المسار الذي يعمل مع صلاحيات المدير والـ HR
-        Uri.parse('http://192.168.1.65:5050/api/admin/users/${widget.user.id}'),
+        Uri.parse('http://192.168.1.78:5050/api/admin/users/${widget.user.id}'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',
@@ -76,7 +76,7 @@ class _HrDashboardState extends State<HrDashboard> {
         if (mounted) {
           setState(() {
             _currentProfilePictureUrl = userData['profilePictureUrl'] != null 
-              ? 'http://192.168.1.65:5050${userData['profilePictureUrl']}'
+              ? 'http://192.168.1.78:5050${userData['profilePictureUrl']}'
               : null;
           });
         }

@@ -5,21 +5,21 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart' as intl;
-import 'package:almahriah_frontend/pages/submit_leave_request_page.dart';
+import 'package:almahriah_frontend/pages/leaves/submit_leave_request_page.dart';
 import 'package:almahriah_frontend/models/user.dart';
-import 'package:almahriah_frontend/pages/leave_calendar_page.dart';
+import 'package:almahriah_frontend/pages/leaves/leave_calendar_page.dart';
 import 'package:flutter/services.dart';
 import 'package:almahriah_frontend/services/auth_service.dart';
 import 'package:almahriah_frontend/widgets/glassmorphism_widgets.dart';
 import 'package:almahriah_frontend/widgets/dashboard_widgets.dart' as dashboard_widgets;
-import 'package:almahriah_frontend/pages/task_details_page.dart';
-import 'package:almahriah_frontend/pages/ai.dart';
+import 'package:almahriah_frontend/pages/tasks/task_details_page.dart';
+import 'package:almahriah_frontend/pages/general/ai.dart';
 import 'package:almahriah_frontend/widgets/animated_ai_button.dart';
 import 'package:almahriah_frontend/widgets/task_progress_indicator.dart';
-import 'package:almahriah_frontend/pages/chat_list_page.dart';
+import 'package:almahriah_frontend/pages/chat/chat_list_page.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:almahriah_frontend/pages/image_picker_page.dart';
+import 'package:almahriah_frontend/pages/general/image_picker_page.dart';
 import 'package:almahriah_frontend/services/profile_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -111,7 +111,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
   Future<void> _updateUserProfilePicture() async {
     try {
       final userResponse = await http.get(
-        Uri.parse('http://192.168.1.65:5050/api/admin/users/${widget.user.id}'),
+        Uri.parse('http://192.168.1.78:5050/api/admin/users/${widget.user.id}'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.user.token}',
@@ -123,7 +123,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
         if (mounted) {
           setState(() {
             _currentProfilePictureUrl = userData['profilePictureUrl'] != null 
-              ? 'http://192.168.1.65:5050${userData['profilePictureUrl']}'
+              ? 'http://192.168.1.78:5050${userData['profilePictureUrl']}'
               : null;
           });
         }
@@ -141,7 +141,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     });
 
     try {
-      final url = Uri.parse('http://192.168.1.65:5050/api/admin/leave-requests/employee/${widget.user.id}');
+      final url = Uri.parse('http://192.168.1.78:5050/api/admin/leave-requests/employee/${widget.user.id}');
       final response = await http.get(
         url,
         headers: {
@@ -180,7 +180,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     });
 
     try {
-      final url = Uri.parse('http://192.168.1.65:5050/api/tasks/by-user');
+      final url = Uri.parse('http://192.168.1.78:5050/api/tasks/by-user');
       final response = await http.get(
         url,
         headers: {
@@ -221,7 +221,7 @@ class _EmployeeDashboardState extends State<EmployeeDashboard> {
     final String taskId = task['id'].toString();
 
     try {
-      final url = Uri.parse('http://192.168.1.65:5050/api/tasks/$taskId/status');
+      final url = Uri.parse('http://192.168.1.78:5050/api/tasks/$taskId/status');
 
       Map<String, dynamic> body = {'status': newStatus};
       if (newStatus == 'completed') {
